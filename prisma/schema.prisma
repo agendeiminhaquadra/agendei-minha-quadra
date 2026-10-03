@@ -1,0 +1,454 @@
+// ============================================================
+// MINHA QUADRA — MULTI-TENANT PRISMA SCHEMA (v1.0)
+// Compatibilidade 100%: tabelas/colunas antigas preservadas via @map / @@map
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // directUrl = env("DIRECT_URL") // opcional Neon — se ativar, REMOVA channel_binding=require da URL (causa erro de autenticação)
+}
+
+// ============================================================
+// ENUMS (NÃO removemos nenhum valor antigo para NÃO quebrar)
+// ============================================================
+
+enum Role {
+  ADMIN
+  GERENTE
+  CAIXA
+  ATENDENTE
+  USER
+}
+
+enum BookingStatus {
+  AVAILABLE
+  RESERVED
+  BLOCKED
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  CANCELED
+  NO_SHOW
+}
+
+enum CustomerStatus {
+  ATIVO
+  INATIVO
+  BLOQUEADO
+}
+
+enum CourtStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum BookingOrigin {
+  ADMIN_PANEL
+  PUBLIC_ARENA
+  WHATSAPP
+  PHONE
+  IN_PERSON
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  PARTIAL
+  REFUNDED
+}
+
+enum PaymentMethod {
+  PIX
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  PAID
+  REFUNDED
+  PARTIALLY_REFUNDED
+  FAILED
+}
+
+enum NotificationType {
+  SYSTEM
+  BOOKING_REMINDER
+  BOOKING_CONFIRMED
+  BOOKING_CANCELED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  BIRTHDAY
+  VIP_CUSTOMER
+}
+
+enum NotificationChannel {
+  APP
+  WHATSAPP
+  EMAIL
+  PUSH
+  SMS
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_VACATION
+  SUSPENDED
+  INACTIVE
+}
+
+// ============================================================
+// 1. COMPANY (antigo "Tenant" — tabela física se mantém "Tenant")
+// ============================================================
+
+model Company {
+  id                            String   @id @default(cuid())
+  name                          String
+  slug                          String   @unique
+  logo                          String?
+  cnpj                          String?
+  email                         String?
+  phone                         String   @default("")
+  address                       String   @default("")
+  city                          String?
+  state                         String?
+  openingTime                   String   @default("08:00")
+  closingTime                   String   @default("23:00")
+  operatesMondayToFriday        Boolean  @default(true)
+  operatesSaturday              Boolean  @default(true)
+  operatesSunday                Boolean  @default(false)
+  defaultCancellationFeePercent Float    @default(0)
+  acceptsPix                    Boolean  @default(true)
+  acceptsCash                   Boolean  @default(true)
+  acceptsCard                   Boolean  @default(true)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+
+  users         User[]
+  courts        Court[]
+  sports        Modality[]
+  customers     Customer[]
+  bookings      Booking[]
+  payments      Payment[]
+  blockedTimes  BlockedTime[]
+  notifications Notification[]
+  employees     Employee[]
+
+  @@map("Tenant")
+}
+
+// ============================================================
+// 2. USER (usuários do admin — coluna antiga "tenantId" se mantém)
+// ============================================================
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String?
+  phone        String?
+  avatarUrl    String?
+  role         Role      @default(USER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  companyId    String    @map("tenantId")
+  company      Company   @relation(fields: [companyId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  employee Employee?
+
+  @@index([companyId])
+}
+
+// ============================================================
+// 3. MODALITY (antigo "Sport" — tabela física se mantém "Sport")
+// ============================================================
+
+model Modality {
+  id               String          @id @default(cuid())
+  name             String
+  color            String?
+  pricePerHour     Float           @default(0)
+  iconName         String?
+  textColorClass   String?
+  bgColorClass     String?
+  borderColorClass String?
+  isActive         Boolean         @default(true)
+  companyId        String          @map("tenantId")
+  company          Company         @relation(fields: [companyId], references: [id])
+  courts           Court[]         @relation("CourtModalityLegacy")
+  courtRelations   CourtModality[]
+  bookings         Booking[]
+
+  @@index([companyId])
+  @@map("Sport")
+}
+
+// ============================================================
+// 4. COURT (Quadra) — coluna "sportId" se mantém no banco
+// ============================================================
+
+model Court {
+  id                     String          @id @default(cuid())
+  name                   String
+  modalityId             String          @map("sportId")
+  modality               Modality        @relation("CourtModalityLegacy", fields: [modalityId], references: [id])
+  pricePerHour           Float
+  startTime              String          @default("08:00")
+  endTime                String          @default("23:00")
+  status                 CourtStatus     @default(ACTIVE)
+  description            String?
+  imageUrl               String?
+  capacity               Int?
+  isCovered              Boolean         @default(false)
+  hasLighting            Boolean         @default(true)
+  floorType              String?
+  defaultDurationMinutes Int             @default(60)
+  isActive               Boolean         @default(true)
+  companyId              String          @map("tenantId")
+  company                Company         @relation(fields: [companyId], references: [id])
+  bookings               Booking[]
+  blockedTimes           BlockedTime[]
+  modalities             CourtModality[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+}
+
+// Tabela N:M opcional — uma quadra aceita múltiplas modalidades (ex: Q03 = Futevôlei + Beach Tennis)
+model CourtModality {
+  id          String   @id @default(cuid())
+  courtId     String
+  modalityId  String
+  customPrice Float? // preço específico, se diferente do padrão da modalidade
+  isPrimary   Boolean  @default(false)
+  court       Court    @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  modality    Modality @relation(fields: [modalityId], references: [id], onDelete: Cascade)
+
+  @@unique([courtId, modalityId])
+}
+
+// ============================================================
+// 5. CUSTOMER (Cliente)
+// ============================================================
+
+model Customer {
+  id             String         @id @default(cuid())
+  name           String
+  email          String?
+  phone          String?
+  cpf            String?
+  status         CustomerStatus @default(ATIVO)
+  birthDate      DateTime?
+  notes          String?
+  totalSpent     Float          @default(0)
+  totalBookings  Int            @default(0)
+  attendanceRate Float          @default(0)
+  isVip          Boolean        @default(false)
+  firstBookingAt DateTime?
+  lastBookingAt  DateTime?
+  companyId      String         @map("tenantId")
+  company        Company        @relation(fields: [companyId], references: [id])
+  bookings       Booking[]
+  payments       Payment[]
+  notifications  Notification[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@unique([companyId, email], map: "customer_company_email_unique")
+  @@unique([companyId, phone], map: "customer_company_phone_unique")
+  @@index([companyId])
+  @@index([companyId, status])
+}
+
+// ============================================================
+// 6. BOOKING (Reserva)
+// ============================================================
+
+model Booking {
+  id                    String        @id @default(cuid())
+  companyId             String        @map("tenantId")
+  company               Company       @relation(fields: [companyId], references: [id])
+  courtId               String
+  court                 Court         @relation(fields: [courtId], references: [id])
+  modalityId            String?
+  modality              Modality?     @relation(fields: [modalityId], references: [id])
+  customerId            String
+  customer              Customer      @relation(fields: [customerId], references: [id])
+  startTime             DateTime
+  endTime               DateTime
+  durationMinutes       Int           @default(60)
+  status                BookingStatus @default(PENDING)
+  totalPrice            Float
+  customerNameSnapshot  String
+  customerPhoneSnapshot String?
+  pricePerHourSnapshot  Float
+  origin                BookingOrigin @default(ADMIN_PANEL)
+  paymentStatus         PaymentStatus @default(UNPAID)
+  paidAmount            Float         @default(0)
+  discountPercent       Float         @default(0)
+  fineAmount            Float         @default(0)
+  notes                 String?
+  checkInAt             DateTime?
+  checkOutAt            DateTime?
+  canceledAt            DateTime?
+  canceledByUserId      String?
+  cancellationReason    String?
+  confirmedAt           DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  payments      Payment[]
+  notifications Notification[]
+
+  @@index([companyId, startTime])
+  @@index([companyId, courtId, startTime])
+  @@index([companyId, customerId])
+  @@index([companyId, status])
+}
+
+// ============================================================
+// 7. PAYMENT (Novo)
+// ============================================================
+
+model Payment {
+  id               String                   @id @default(cuid())
+  companyId        String
+  company          Company                  @relation(fields: [companyId], references: [id])
+  bookingId        String
+  booking          Booking                  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  customerId       String?
+  customer         Customer?                @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  amount           Float
+  paymentMethod    PaymentMethod
+  status           PaymentTransactionStatus @default(PENDING)
+  pixQrCode        String?
+  pixCopyPaste     String?
+  transactionId    String?
+  installments     Int                      @default(1)
+  paidAt           DateTime?
+  refundedAt       DateTime?
+  refundReason     String?
+  receivedByUserId String?
+  notes            String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  @@index([companyId, createdAt])
+  @@index([companyId, bookingId])
+  @@index([companyId, customerId])
+  @@index([companyId, status])
+}
+
+// ============================================================
+// 8. BLOCKED TIME (Novo — horários bloqueados: manutenção, fechamento, folgas)
+// ============================================================
+
+model BlockedTime {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id])
+  courtId          String?
+  court            Court?   @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  modalityId       String?
+  startTime        DateTime
+  endTime          DateTime
+  isRecurring      Boolean  @default(false)
+  recurringPattern String?
+  reason           String
+  blockedByUserId  String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  @@index([companyId, startTime, endTime])
+  @@index([companyId, courtId, startTime])
+}
+
+// ============================================================
+// 9. NOTIFICATION (Novo)
+// ============================================================
+
+model Notification {
+  id             String               @id @default(cuid())
+  companyId      String
+  company        Company              @relation(fields: [companyId], references: [id])
+  userId         String?
+  customerId     String?
+  customer       Customer?            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  title          String
+  message        String
+  channel        NotificationChannel
+  priority       NotificationPriority
+  isRead         Boolean              @default(false)
+  readAt         DateTime?
+  sentAt         DateTime?
+  deliveryStatus DeliveryStatus       @default(PENDING)
+  createdAt      DateTime             @default(now())
+
+  @@index([companyId, userId, isRead])
+  @@index([companyId, customerId])
+  @@index([companyId, bookingId])
+}
+
+// ============================================================
+// 10. EMPLOYEE (Novo)
+// ============================================================
+
+model Employee {
+  id                    String         @id @default(cuid())
+  companyId             String
+  company               Company        @relation(fields: [companyId], references: [id])
+  userId                String?        @unique
+  user                  User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName              String
+  cpf                   String?
+  rg                    String?
+  position              String
+  phone                 String
+  email                 String?
+  birthDate             DateTime?
+  salary                Float?
+  hireDate              DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  status                EmployeeStatus @default(ACTIVE)
+  worksMondayToFriday   Boolean        @default(true)
+  worksSaturday         Boolean        @default(false)
+  worksSunday           Boolean        @default(false)
+  shiftStart            String?
+  shiftEnd              String?
+  notes                 String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([companyId])
+  @@index([companyId, status])
+}
