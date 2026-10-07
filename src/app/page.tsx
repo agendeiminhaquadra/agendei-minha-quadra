@@ -148,7 +148,6 @@ const PLANOS: Plano[] = [
       "Até 2 quadras cadastradas",
       "Agendamento online ilimitado",
       "Gestão de clientes",
-      "Lembretes via WhatsApp",
       "Relatórios básicos",
       "Suporte via chat",
     ],
@@ -163,6 +162,7 @@ const PLANOS: Plano[] = [
     beneficios: [
       "Até 6 quadras cadastradas",
       "Tudo do plano Essencial, mais:",
+      "Lembretes via WhatsApp",
       "Pagamentos Pix e Cartão integrados",
       "Relatórios financeiros avançados",
       "2 usuários (Caixa/Atendente)",
@@ -182,7 +182,6 @@ const PLANOS: Plano[] = [
       "Usuários e cargos ilimitados",
       "Domínio personalizado",
       "Relatórios comparativos (múltiplas unidades)",
-      "Integração contábil",
       "Gerente de sucesso dedicado",
       "Onboarding completo",
     ],
@@ -342,7 +341,7 @@ export default function SiteVendasSaaS() {
       </header>
 
       {/* HERO SITE DE VENDAS */}
-      <section id="inicio" className="relative overflow-hidden text-white">
+      <section id="inicio" className="relative overflow-hidden text-white scroll-mt-[100px]">
         <div className="absolute inset-0">
           <div
             className="absolute inset-0"
@@ -562,7 +561,7 @@ export default function SiteVendasSaaS() {
       </section>
 
       {/* 4 RECURSOS PRINCIPAIS (sobrepostos hero) */}
-      <section id="recursos" className="relative -mt-20 z-20">
+      <section id="recursos" className="relative -mt-20 z-20 scroll-mt-[120px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 rounded-3xl overflow-hidden border border-white/10 bg-[#0B1220] shadow-[0_24px_64px_rgba(0,0,0,0.4)]">
             {FEATURES_TOPO.map((b, i) => (
@@ -632,7 +631,7 @@ export default function SiteVendasSaaS() {
       </section>
 
       {/* COMO FUNCIONA */}
-      <section id="como-funciona" className="relative py-20 overflow-hidden">
+      <section id="como-funciona" className="relative py-20 overflow-hidden scroll-mt-[100px]">
         <div className="absolute inset-0 bg-[#0B1220]" />
         <div className="absolute -left-[15%] -top-40 w-[500px] h-[500px] rounded-full bg-[#FF7A00]/22 blur-[120px]" />
         <div className="absolute right-[-8%] -bottom-40 w-[520px] h-[520px] rounded-full bg-[#FF4D2E]/12 blur-[120px]" />
@@ -706,7 +705,7 @@ export default function SiteVendasSaaS() {
       </section>
 
       {/* PLANOS E PREÇOS */}
-      <section id="planos" className="py-20 bg-gradient-to-b from-white to-[#FFFBF5]">
+      <section id="planos" className="py-20 bg-gradient-to-b from-white to-[#FFFBF5] scroll-mt-[100px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12">
             <div className="inline-flex items-center gap-2 mb-3">
@@ -867,7 +866,7 @@ export default function SiteVendasSaaS() {
       </section>
 
       {/* DEPOIMENTOS */}
-      <section id="depoimentos" className="py-20">
+      <section id="depoimentos" className="py-20 scroll-mt-[100px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between mb-12 flex-wrap gap-5">
             <div>
@@ -988,7 +987,7 @@ export default function SiteVendasSaaS() {
       </section>
 
       {/* CTA DEMO + FORMULÁRIO */}
-      <section id="demo" className="py-20">
+      <section id="demo" className="py-20 scroll-mt-[100px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
