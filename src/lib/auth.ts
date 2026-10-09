@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import type { SubscriptionStatus, PlanTier } from "@prisma/client";
 
 const AUTH_SECRET = process.env.AUTH_SECRET || "minha-quadra-dev-secret-change-me-please-2026";
 const SESSION_COOKIE = "mq_session";
@@ -154,4 +155,59 @@ export function slugify(str: string): string {
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-");
+}
+
+export type SubscriptionInfo = {
+  planTier: PlanTier;
+  planStatus: SubscriptionStatus;
+  trialStartsAt: Date;
+  trialEndsAt: Date;
+  daysLeft: number;
+  isExpired: boolean;
+  isActive: boolean;
+};
+
+export function calcSubscriptionInfo(raw: {
+  planTier: PlanTier;
+  planStatus: SubscriptionStatus;
+  trialStartsAt: Date;
+  trialEndsAt: Date;
+  currentPeriodEnd?: Date | null;
+}): SubscriptionInfo {
+  const agora = new Date();
+  const trialEnd = new Date(raw.trialEndsAt);
+  const msLeft = trialEnd.getTime() - agora.getTime();
+  const daysLeft = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
+  const isExpired =
+    raw.planStatus === "EXPIRED" ||
+    (raw.planStatus === "TRIALING" && trialEnd.getTime() < agora.getTime()) ||
+    (raw.planStatus === "PAST_DUE") ||
+    (raw.planStatus === "CANCELED" && (!raw.currentPeriodEnd || raw.currentPeriodEnd.getTime() < agora.getTime()));
+  const isActive = !isExpired;
+  return {
+    planTier: raw.planTier,
+    planStatus: raw.planStatus,
+    trialStartsAt: new Date(raw.trialStartsAt),
+    trialEndsAt: trialEnd,
+    daysLeft,
+    isExpired,
+    isActive,
+  };
+}
+
+export async function getCompanySubscriptionBySession(): Promise<SubscriptionInfo | null> {
+  const s = await getSession();
+  if (!s) return null;
+  const c = await prisma.company.findUnique({
+    where: { id: s.companyId },
+    select: {
+      planTier: true,
+      planStatus: true,
+      trialStartsAt: true,
+      trialEndsAt: true,
+      currentPeriodEnd: true,
+    },
+  });
+  if (!c) return null;
+  return calcSubscriptionInfo(c);
 }

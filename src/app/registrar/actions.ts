@@ -68,6 +68,9 @@ export async function registrarAction(
     const slug = await gerarSlugUnico(companyName);
     const passwordHash = await hashPassword(password);
     const apenasNumeros = (v: string) => v.replace(/\D/g, "");
+    const trialStartsAt = new Date();
+    const trialEndsAt = new Date();
+    trialEndsAt.setDate(trialEndsAt.getDate() + 7);
 
     const company = await prisma.company.create({
       data: {
@@ -76,6 +79,10 @@ export async function registrarAction(
         email,
         phone: apenasNumeros(phone),
         city,
+        planTier: "TRIAL",
+        planStatus: "TRIALING",
+        trialStartsAt,
+        trialEndsAt,
       },
       select: { id: true },
     });
