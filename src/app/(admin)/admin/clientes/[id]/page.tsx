@@ -1,15 +1,19 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { DetalheClienteUI } from "@/components/admin/ClienteDetalheUI";
 import { CustomerStatus } from "@prisma/client";
+import { getSession } from "@/lib/auth";
 
 export const revalidate = 30;
 
-const COMPANY_SLUG = "arena-central";
-
 export default async function ClienteDetalhesPage({ params }: { params: { id: string } }) {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
+
   const company = await prisma.company.findUniqueOrThrow({
-    where: { slug: COMPANY_SLUG },
+    where: { id: session.companyId },
   });
 
   const cliente = await prisma.customer.findUnique({

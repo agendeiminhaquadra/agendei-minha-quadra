@@ -1,14 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { ListaClientesUI } from "@/components/admin/ClienteListaUI";
 import { CustomerStatus } from "@prisma/client";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const revalidate = 60;
 
-const COMPANY_SLUG = "arena-central";
-
 export default async function ClientesPage() {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login?next=/admin/clientes");
+  }
+
   const company = await prisma.company.findUniqueOrThrow({
-    where: { slug: COMPANY_SLUG },
+    where: { id: session.companyId },
   });
 
   const [clientes, total, ativos, inativos, bloqueados] = await Promise.all([

@@ -14,10 +14,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BookingStatus } from "@prisma/client";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const revalidate = 30;
-
-const COMPANY_SLUG = "arena-central";
 
 function formatCurrency(val: number) {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -28,8 +28,13 @@ function formatTime(d: Date) {
 }
 
 async function getDashboardData() {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login?next=/admin");
+  }
+
   const company = await prisma.company.findUniqueOrThrow({
-    where: { slug: COMPANY_SLUG },
+    where: { id: session.companyId },
   });
 
   const inicioHoje = new Date();
@@ -167,8 +172,14 @@ async function getDashboardData() {
     },
   });
 
+  const userLogged = await prisma.user.findUnique({
+    where: { id: session.userId, companyId: session.companyId },
+    select: { name: true },
+  });
+
   return {
     company,
+    userName: userLogged?.name || "Administrador",
     reservasHoje,
     receitaHojeValor,
     quadrasAtivas,
@@ -191,7 +202,7 @@ export default async function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="text-3xl font-black text-dark tracking-tight">Olá, Administrador 👋</h2>
+        <h2 className="text-3xl font-black text-dark tracking-tight">Olá, {data.userName} 👋</h2>
         <p className="text-text-secondary font-medium">Veja o resumo do seu complexo esportivo hoje.</p>
       </div>
 

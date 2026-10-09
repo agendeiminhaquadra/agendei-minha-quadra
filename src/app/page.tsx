@@ -9,9 +9,10 @@ import {
   BarChart3, FileText, Settings, Smartphone,
   MessageCircle, Award, TrendingUp, DollarSign,
   Building2, Heart, Phone, Mail, MapPin,
-  LayoutDashboard, Trophy, Bell, Menu
+  LayoutDashboard, Trophy, Bell, Menu, Rocket
 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type FeatureCard = {
@@ -151,7 +152,7 @@ const PLANOS: Plano[] = [
       "Relatórios básicos",
       "Suporte via chat",
     ],
-    ctaLabel: "Começar com Essencial",
+    ctaLabel: "Testar Grátis 7 dias",
   },
   {
     nome: "Profissional",
@@ -169,7 +170,7 @@ const PLANOS: Plano[] = [
       "Multa de cancelamento automática",
       "Suporte prioritário",
     ],
-    ctaLabel: "Escolher Profissional",
+    ctaLabel: "Testar Grátis 7 dias",
   },
   {
     nome: "Empresa",
@@ -185,7 +186,7 @@ const PLANOS: Plano[] = [
       "Gerente de sucesso dedicado",
       "Onboarding completo",
     ],
-    ctaLabel: "Falar com Vendas",
+    ctaLabel: "Testar Grátis 7 dias",
   },
 ];
 
@@ -225,10 +226,11 @@ const NAV_LINKS = [
   { nome: "Como Funciona", href: "#como-funciona" },
   { nome: "Planos", href: "#planos" },
   { nome: "Depoimentos", href: "#depoimentos" },
-  { nome: "Solicitar Demo", href: "#demo" },
+  { nome: "Teste Grátis", href: "/registrar" },
 ];
 
 export default function SiteVendasSaaS() {
+  const router = useRouter();
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [periodoAnual, setPeriodoAnual] = useState(true);
   const [formEnviado, setFormEnviado] = useState(false);
@@ -240,13 +242,14 @@ export default function SiteVendasSaaS() {
   function onSubmitDemo(e: React.FormEvent) {
     e.preventDefault();
     setFormEnviado(true);
+    const params = new URLSearchParams();
+    if (formNome) params.set("ownerName", formNome);
+    if (formTelefone) params.set("phone", formTelefone);
+    if (formComplexo) params.set("companyName", formComplexo);
+    if (formCidade) params.set("city", formCidade);
     setTimeout(() => {
-      setFormEnviado(false);
-      setFormNome("");
-      setFormTelefone("");
-      setFormComplexo("");
-      setFormCidade("");
-    }, 5000);
+      router.push(`/registrar?${params.toString()}`);
+    }, 800);
   }
 
   return (
@@ -285,16 +288,16 @@ export default function SiteVendasSaaS() {
 
             <div className="hidden md:flex items-center gap-3">
               <Link
-                href="/admin"
+                href="/login"
                 className="px-4 py-2.5 rounded-xl text-sm font-bold text-dark border border-border hover:bg-background-light hover:text-dark transition-all"
               >
                 Entrar
               </Link>
               <Link
-                href="#demo"
+                href="/registrar"
                 className="px-5 py-2.5 rounded-xl text-sm font-black text-white bg-gradient-to-r from-[#FF8A00] to-[#FF6A00] hover:shadow-[0_8px_24px_rgba(255,122,0,0.45)] hover:scale-[1.03] active:scale-[0.998] transition-all"
               >
-                Solicitar Demo
+                Teste Grátis 7 dias
               </Link>
             </div>
 
@@ -322,18 +325,18 @@ export default function SiteVendasSaaS() {
             ))}
             <div className="pt-3 flex flex-col gap-2">
               <Link
-                href="/admin"
+                href="/login"
                 onClick={() => setMenuMobileAberto(false)}
                 className="text-center px-4 py-2.5 rounded-xl border border-border text-dark font-bold hover:bg-background-light"
               >
                 Entrar
               </Link>
               <Link
-                href="#demo"
+                href="/registrar"
                 onClick={() => setMenuMobileAberto(false)}
                 className="text-center px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#FF8A00] to-[#FF7A00] text-white font-black"
               >
-                Solicitar Demonstração
+                Teste Grátis 7 dias
               </Link>
             </div>
           </div>
@@ -393,10 +396,10 @@ export default function SiteVendasSaaS() {
 
               <div className="mt-9 flex flex-wrap items-center gap-4">
                 <Link
-                  href="#demo"
+                  href="/registrar"
                   className="px-7 py-4 rounded-xl text-white font-black bg-gradient-to-r from-[#FF8A00] to-[#FF6A00] hover:shadow-[0_12px_36px_rgba(255,138,0,0.55)] hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center gap-2"
                 >
-                  Solicitar Demonstração <ArrowRight size={18} />
+                  Teste Grátis 7 dias <ArrowRight size={18} />
                 </Link>
                 <Link
                   href="#planos"
@@ -695,7 +698,7 @@ export default function SiteVendasSaaS() {
 
           <div className="mt-14 text-center">
             <Link
-              href="#demo"
+              href="/registrar"
               className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-black text-white bg-gradient-to-r from-[#FF8A00] to-[#FF6A00] hover:shadow-[0_12px_36px_rgba(255,138,0,0.55)] hover:-translate-y-0.5 transition-all"
             >
               Começar agora gratuitamente <ArrowRight size={18} />
@@ -849,7 +852,8 @@ export default function SiteVendasSaaS() {
                   ))}
                 </ul>
 
-                <button
+                <Link
+                  href="/registrar"
                   className={cn(
                     "mt-8 w-full py-3.5 rounded-xl font-black transition-all inline-flex items-center justify-center gap-2",
                     pl.popular
@@ -858,7 +862,7 @@ export default function SiteVendasSaaS() {
                   )}
                 >
                   {pl.ctaLabel} <ArrowRight size={16} />
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -986,30 +990,31 @@ export default function SiteVendasSaaS() {
         </div>
       </section>
 
-      {/* CTA DEMO + FORMULÁRIO */}
+      {/* CTA TESTE GRÁTIS + FORMULÁRIO */}
       <section id="demo" className="py-20 scroll-mt-[100px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <div className="inline-flex items-center gap-2 mb-3">
-                <Phone size={16} className="text-[#FF8A00]" />
+                <Sparkles size={16} className="text-[#FF8A00]" />
                 <p className="text-xs font-black uppercase tracking-widest text-[#FF8A00]">
-                  Fale com um especialista
+                  Sem cartão de crédito
                 </p>
               </div>
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-dark leading-tight">
-                Solicite uma <span className="text-[#FF8A00]">demonstração gratuita</span> personalizada.
+                Comece seu <span className="text-[#FF8A00]">Teste Grátis de 7 dias</span> agora mesmo.
               </h2>
               <p className="text-text-secondary mt-4 text-lg max-w-lg">
-                Mostramos exatamente como o sistema funciona para <strong>o seu tipo de complexo</strong> e respondemos todas as suas dúvidas, sem compromisso.
+                Crie sua conta em menos de 1 minuto, configure suas quadras e comece a <strong>vender horários online automaticamente</strong>. Sem taxa de adesão, sem compromisso.
               </p>
 
               <ul className="mt-8 space-y-3.5">
                 {[
-                  "Demonstração ao vivo de 30 minutos na sua agenda",
-                  "Plano exclusivo para seu tamanho de operação",
-                  "Consultoria: quantos % você pode aumentar sua ocupação",
-                  "Onboarding incluso caso você adquira",
+                  "7 dias grátis para testar TUDO do sistema",
+                  "Não precisa cadastrar cartão de crédito",
+                  "Site de reservas online 24h já no ar",
+                  "Suporte humano em português de segunda a domingo",
+                  "Cancele quando quiser, sem multa",
                 ].map((x) => (
                   <li key={x} className="flex items-start gap-3">
                     <div className="shrink-0 w-6 h-6 rounded-full bg-[#FF8A00]/12 text-[#FF8A00] flex items-center justify-center mt-0.5">
@@ -1035,11 +1040,11 @@ export default function SiteVendasSaaS() {
               <div className="relative rounded-3xl bg-white border border-border shadow-[0_30px_80px_rgba(0,0,0,0.09)] p-7 sm:p-9">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h3 className="text-2xl font-black text-dark">Quero uma demonstração</h3>
-                    <p className="text-text-secondary mt-1 text-sm">Preencha o formulário. Entraremos em contato em até 1h útil.</p>
+                    <h3 className="text-2xl font-black text-dark">Criar minha conta grátis</h3>
+                    <p className="text-text-secondary mt-1 text-sm">Preencha e comece a usar agora. 7 dias grátis.</p>
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-[#FF8A00]/12 text-[#FF8A00] flex items-center justify-center shrink-0">
-                    <Sparkles size={24} />
+                    <Rocket size={24} />
                   </div>
                 </div>
 
@@ -1048,9 +1053,9 @@ export default function SiteVendasSaaS() {
                     <div className="mx-auto w-14 h-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-4">
                       <CheckCircle2 size={28} />
                     </div>
-                    <h4 className="text-xl font-black text-dark mb-1">Solicitação enviada! 🎉</h4>
+                    <h4 className="text-xl font-black text-dark mb-1">Tudo certo! 🎉</h4>
                     <p className="text-text-secondary">
-                      Um especialista vai entrar em contato em breve no telefone que você cadastrou.
+                      Redirecionando você para a página de cadastro para finalizar sua conta.
                     </p>
                   </div>
                 ) : (
@@ -1107,19 +1112,19 @@ export default function SiteVendasSaaS() {
                       />
                     </div>
                     <div className="rounded-xl bg-[#FF8A00]/6 border border-[#FF8A00]/15 p-4 flex items-start gap-3">
-                      <MapPin size={18} className="text-[#FF8A00] shrink-0 mt-0.5" />
+                      <Ticket size={18} className="text-[#FF8A00] shrink-0 mt-0.5" />
                       <p className="text-[13px] text-dark/80 leading-relaxed">
-                        <strong className="text-dark">Promoção de lançamento:</strong> Quem solicita demo ainda hoje ganha <strong>15% de desconto</strong> no primeiro ano do plano escolhido + onboarding gratuito.
+                        <strong className="text-dark">Bônus de boas-vindas:</strong> Quem se cadastra hoje ganha <strong>15% de desconto</strong> no primeiro ano do plano escolhido + onboarding personalizado gratuito.
                       </p>
                     </div>
-                    <button
-                      type="submit"
+                    <Link
+                      href="/registrar"
                       className="w-full py-4 rounded-xl font-black text-white bg-gradient-to-r from-[#FF8A00] to-[#FF6A00] hover:shadow-[0_12px_36px_rgba(255,138,0,0.55)] hover:-translate-y-0.5 active:translate-y-0 transition-all inline-flex items-center justify-center gap-2"
                     >
-                      Solicitar Demonstração Agora <ArrowRight size={18} />
-                    </button>
+                      Ir para Cadastro Grátis <ArrowRight size={18} />
+                    </Link>
                     <p className="text-center text-[12px] font-semibold text-text-secondary">
-                      Ao enviar, você concorda com a nossa Política de Privacidade. 100% sem spam.
+                      Ao criar conta, você concorda com a nossa Política de Privacidade. 100% sem spam.
                     </p>
                   </form>
                 )}

@@ -21,10 +21,10 @@ import {
 import { cn } from "@/lib/utils";
 import { CourtStatus } from "@prisma/client";
 import Link from "next/link";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const revalidate = 60;
-
-const COMPANY_SLUG = "arena-central";
 
 const modalityIcons: Record<string, string> = {
   "Futebol Society": "trophy",
@@ -75,8 +75,13 @@ function IconForModality({ name }: { name: string }) {
 }
 
 export default async function QuadrasPage() {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login?next=/admin/quadras");
+  }
+
   const company = await prisma.company.findUniqueOrThrow({
-    where: { slug: COMPANY_SLUG },
+    where: { id: session.companyId },
   });
 
   const quadras = await prisma.court.findMany({

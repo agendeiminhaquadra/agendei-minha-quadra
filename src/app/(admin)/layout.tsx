@@ -2,22 +2,17 @@ import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/admin/Sidebar";
 import { Header } from "@/components/admin/Header";
 import { Role } from "@prisma/client";
-
-const COMPANY_SLUG = "arena-central";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 async function getLayoutData() {
-  const company = await prisma.company.findUniqueOrThrow({
-    where: { slug: COMPANY_SLUG },
-    select: {
-      id: true,
-      name: true,
-      logo: true,
-      slug: true,
-    },
-  });
+  const session = await getSession();
+  if (!session) {
+    redirect("/login?next=/admin");
+  }
 
-  const firstAdmin = await prisma.user.findFirst({
-    where: { companyId: company.id, role: { in: ["ADMIN", "GERENTE"] }, isActive: true },
+  const userLogged = await prisma.user.findUnique({
+    where: { id: session.userId, companyId: session.companyId, isActive: true },
     select: {
       id: true,
       name: true,
@@ -25,7 +20,20 @@ async function getLayoutData() {
       avatarUrl: true,
       role: true,
     },
-    orderBy: { createdAt: "asc" },
+  });
+
+  if (!userLogged) {
+    redirect("/login?next=/admin");
+  }
+
+  const company = await prisma.company.findUniqueOrThrow({
+    where: { id: session.companyId },
+    select: {
+      id: true,
+      name: true,
+      logo: true,
+      slug: true,
+    },
   });
 
   return {
@@ -35,28 +43,19 @@ async function getLayoutData() {
       logo: company.logo || undefined,
       slug: company.slug,
     },
-    user: firstAdmin
-      ? {
-          id: firstAdmin.id,
-          name: firstAdmin.name || "Administrador",
-          email: firstAdmin.email,
-          avatarUrl: firstAdmin.avatarUrl || undefined,
-          role: firstAdmin.role,
-          initials: (firstAdmin.name || "AA")
-            .split(" ")
-            .map((n) => n[0])
-            .slice(0, 2)
-            .join("")
-            .toUpperCase(),
-        }
-      : {
-          id: "demo",
-          name: "Administrador",
-          email: "admin@arenacentral.com.br",
-          avatarUrl: undefined,
-          role: "ADMIN" as Role,
-          initials: "AA",
-        },
+    user: {
+      id: userLogged.id,
+      name: userLogged.name || "Administrador",
+      email: userLogged.email,
+      avatarUrl: userLogged.avatarUrl || undefined,
+      role: userLogged.role as Role,
+      initials: (userLogged.name || "AA")
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase(),
+    },
   };
 }
 

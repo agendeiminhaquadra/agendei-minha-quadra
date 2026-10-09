@@ -4,12 +4,16 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { sanitizePhone } from "@/lib/utils";
 import { BookingStatus, CustomerStatus, CourtStatus, BookingOrigin, PaymentStatus, PaymentMethod, PaymentTransactionStatus } from "@prisma/client";
-
-const COMPANY_SLUG = "arena-central";
+import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 async function getCompanyOrThrow() {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
+  }
   const company = await prisma.company.findUniqueOrThrow({
-    where: { slug: COMPANY_SLUG },
+    where: { id: session.companyId },
   });
   return company;
 }
