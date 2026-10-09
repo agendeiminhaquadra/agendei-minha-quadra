@@ -552,7 +552,7 @@ export default function SiteVendasSaaS() {
                   <p className="text-[10px] font-black uppercase tracking-wider text-text-secondary">
                     Nova Reserva
                   </p>
-                  <p className="text-sm font-black text-dark truncate">Mariana • 19h Beach</p>
+                  <p className="text-sm font-black text-dark truncate">Fernada • 19h Beach</p>
                 </div>
               </div>
             </div>
