@@ -156,7 +156,12 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [bookingRes, setBookingRes] = useState<{ success: boolean; message: string; bookingId?: string } | null>(null);
+  const [bookingRes, setBookingRes] = useState<{ 
+    success: boolean; 
+    message?: string; 
+    bookingId?: string;
+    error?: string;
+  } | null>(null);
 
   const handleConfirmBooking = async () => {
     if (!modalityId || !dataSelecionada || !quadraId || !horarioSelecionado) return;
