@@ -32,7 +32,13 @@ function LoginContent() {
   const [showPw, setShowPw] = useState(false);
 
   if (state.ok) {
-    setTimeout(() => router.push("/admin"), 0);
+    const nextUrl = searchParams.get("next");
+    if (nextUrl) {
+      setTimeout(() => router.push(nextUrl), 0);
+    } else {
+      const destination = state.role === "SUPERADMIN" ? "/superadmin" : "/admin";
+      setTimeout(() => router.push(destination), 0);
+    }
   }
 
   return (

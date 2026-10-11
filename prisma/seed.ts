@@ -54,6 +54,22 @@ async function main() {
   console.log(`✅ Admin criado: ${usuarioAdmin.name} (${usuarioAdmin.email})`);
   console.log(`   🔑 Senha temporária: ${SENHA_PADRAO}\n`);
 
+  console.log("👑 Criando Super Administrador...");
+  const superAdmin = await prisma.user.upsert({
+    where: { email: "super@minhaquadra.com.br" },
+    update: { role: Role.SUPERADMIN },
+    create: {
+      email: "super@minhaquadra.com.br",
+      name: "Super Admin MQ",
+      passwordHash: hashSenha,
+      role: Role.SUPERADMIN,
+      isActive: true,
+      companyId: empresa.id, // O SuperAdmin precisa estar vinculado a uma empresa no schema atual, mas o cargo ignora filtros de tenant no código que fizemos
+    },
+  });
+  console.log(`✅ Super Admin criado: ${superAdmin.name} (${superAdmin.email})`);
+  console.log(`   🔑 Senha temporária: ${SENHA_PADRAO}\n`);
+
   console.log("⚽ Criando Modalidades...");
   const modalidadeFutebol = await prisma.modality.upsert({
     where: { id: "mod-futebol" },

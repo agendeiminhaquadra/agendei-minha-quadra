@@ -7,6 +7,7 @@ export type LoginResult = {
   ok: boolean;
   error?: string;
   fieldErrors?: { email?: string; password?: string };
+  role?: string;
 };
 
 export async function loginAction(
@@ -29,7 +30,7 @@ export async function loginAction(
 
   const user = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, passwordHash: true, companyId: true, isActive: true },
+    select: { id: true, passwordHash: true, companyId: true, isActive: true, role: true },
   });
 
   if (!user || !user.passwordHash) {
@@ -55,5 +56,5 @@ export async function loginAction(
     });
   } catch {}
 
-  return { ok: true };
+  return { ok: true, role: user.role };
 }
