@@ -46,13 +46,14 @@ export async function middleware(request: NextRequest) {
   const isLoggedIn = token ? await verifySessionToken(token) : false;
 
   const isAdmin = pathname.startsWith("/admin");
+  const isSuperAdmin = pathname.startsWith("/superadmin");
   const isLogin = pathname === "/login";
   const isRegistrar = pathname === "/registrar";
 
-  if (isAdmin && !isLoggedIn) {
+  if ((isAdmin || isSuperAdmin) && !isLoggedIn) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", "/admin");
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
@@ -66,5 +67,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/registrar"],
+  matcher: ["/admin/:path*", "/superadmin/:path*", "/login", "/registrar"],
 };

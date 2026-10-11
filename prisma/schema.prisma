@@ -18,6 +18,7 @@ datasource db {
 // ============================================================
 
 enum Role {
+  SUPERADMIN
   ADMIN
   GERENTE
   CAIXA

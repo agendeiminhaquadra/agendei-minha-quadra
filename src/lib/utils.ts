@@ -18,3 +18,10 @@ export function sanitizePhone(phone: string) {
     .replace(/\D/g, "")
     .replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
 }
+
+export function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
