@@ -19,7 +19,6 @@ import {
   CreditCard,
   Home,
   Trophy,
-  Volleyball,
   Sun
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -50,7 +49,7 @@ interface ArenaBookingClientProps {
 
 const modalityIconMap: Record<string, any> = {
   "trophy": Trophy,
-  "volleyball": Volleyball,
+  "volleyball": Trophy, // Fallback temporário
   "sun": Sun,
   "tennis": Home, // Fallback
 };

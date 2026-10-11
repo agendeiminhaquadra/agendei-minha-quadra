@@ -32,6 +32,7 @@ async function main() {
       acceptsPix: true,
       acceptsCash: true,
       acceptsCard: true,
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias a partir de agora
     },
   });
   console.log(`✅ Empresa criada: ${empresa.name} (slug: ${empresa.slug})\n`);
