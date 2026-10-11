@@ -24,8 +24,7 @@ export async function GET() {
           openingTime: "08:00",
           closingTime: "23:00",
           trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          planStatus: SubscriptionStatus.ACTIVE,
-          planTier: PlanTier.EMPRESA
+          planStatus: SubscriptionStatus.ACTIVE
         }
       });
     }
