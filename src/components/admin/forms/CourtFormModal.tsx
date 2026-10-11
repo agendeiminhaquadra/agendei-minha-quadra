@@ -68,12 +68,11 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
             label="Modalidade Principal" 
             name="modalityId" 
             required
-          >
-            <option value="">Selecione...</option>
-            {modalities.map(m => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </Select>
+            options={[
+              { label: "Selecione...", value: "" },
+              ...modalities.map(m => ({ label: m.name, value: m.id }))
+            ]}
+          />
         </div>
 
         <Textarea 
