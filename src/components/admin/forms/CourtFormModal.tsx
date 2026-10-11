@@ -47,7 +47,6 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
       isOpen={isOpen} 
       onClose={onClose} 
       title="Nova Quadra" 
-      icon={<Trophy size={20} className="text-primary-orange" />}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
