@@ -134,11 +134,11 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
         </div>
 
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" isLoading={isSubmitting}>
-            Salvar Quadra
+          <Button type="submit" variant="primary" disabled={isSubmitting}>
+            {isSubmitting ? "Salvando..." : "Salvar Quadra"}
           </Button>
         </div>
       </form>
