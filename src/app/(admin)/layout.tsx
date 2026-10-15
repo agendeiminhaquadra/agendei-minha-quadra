@@ -27,6 +27,9 @@ async function getLayoutData() {
   if (!userLogged) {
     redirect("/login?next=/admin");
   }
+  if (userLogged.role === Role.SUPERADMIN) {
+    redirect("/superadmin");
+  }
   if (userLogged.role === Role.USER) {
     redirect("/login?error=forbidden");
   }
