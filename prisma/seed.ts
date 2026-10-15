@@ -4,7 +4,13 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const SALT_ROUNDS = 12;
-const SENHA_PADRAO = "Admin@123";
+const SENHA_SEED = (() => {
+  const password = process.env.SEED_ADMIN_PASSWORD;
+  if (!password || password.length < 12) {
+    throw new Error("Defina SEED_ADMIN_PASSWORD com pelo menos 12 caracteres antes de executar o seed.");
+  }
+  return password;
+})();
 
 async function main() {
   console.log("🌱 Iniciando seed do banco Minha Quadra...\n");
@@ -38,7 +44,7 @@ async function main() {
   console.log(`✅ Empresa criada: ${empresa.name} (slug: ${empresa.slug})\n`);
 
   console.log("👤 Criando Usuário Admin (João Duarte)...");
-  const hashSenha = await bcrypt.hash(SENHA_PADRAO, SALT_ROUNDS);
+  const hashSenha = await bcrypt.hash(SENHA_SEED, SALT_ROUNDS);
   const usuarioAdmin = await prisma.user.upsert({
     where: { email: "admin@arenacentral.com.br" },
     update: { passwordHash: hashSenha },
@@ -53,7 +59,6 @@ async function main() {
     },
   });
   console.log(`✅ Admin criado: ${usuarioAdmin.name} (${usuarioAdmin.email})`);
-  console.log(`   🔑 Senha temporária: ${SENHA_PADRAO}\n`);
 
   console.log("👑 Criando Super Administrador...");
   const superAdmin = await prisma.user.upsert({
@@ -69,7 +74,6 @@ async function main() {
     },
   });
   console.log(`✅ Super Admin criado: ${superAdmin.name} (${superAdmin.email})`);
-  console.log(`   🔑 Senha temporária: ${SENHA_PADRAO}\n`);
 
   console.log("⚽ Criando Modalidades...");
   const modalidadeFutebol = await prisma.modality.upsert({
@@ -434,7 +438,6 @@ async function main() {
   console.log("══════════════════════════════════════════════════\n");
   console.log("Dados criados:");
   console.log(`  🏢 Empresa: ${empresa.name}`);
-  console.log(`  👤 Admin: ${usuarioAdmin.email} / senha: ${SENHA_PADRAO}`);
   console.log(`  ⚽ 4 Modalidades`);
   console.log(`  🏟️ 4 Quadras`);
   console.log(`  👥 ${clientesCriados.length} Clientes`);

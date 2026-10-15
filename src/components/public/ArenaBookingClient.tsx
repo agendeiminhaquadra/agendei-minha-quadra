@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Calendar, 
   Clock, 
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Company, Court, Modality } from "@prisma/client";
-import { createPublicBookingAction } from "@/app/arena/actions";
+import { createPublicBookingAction, getPublicAvailabilityAction } from "@/app/arena/actions";
 
 type ModalityWithIcon = Modality & {
   icon?: React.ReactNode;
@@ -31,6 +31,7 @@ type ModalityWithIcon = Modality & {
 
 type CourtWithModality = Court & {
   modality: Modality;
+  modalities: { modalityId: string; customPrice: number | null }[];
 };
 
 type SlotStatus = "available" | "reserved";
@@ -95,6 +96,8 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [quadraId, setQuadraId] = useState<string | null>(null);
   const [horarioSelecionado, setHorarioSelecionado] = useState<string | null>(null);
+  const [horarios, setHorarios] = useState<TimeSlot[]>([]);
+  const [loadingHorarios, setLoadingHorarios] = useState(false);
   const [diasPage, setDiasPage] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -108,36 +111,39 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
 
   const quadrasDisponiveis = useMemo(() => {
     if (!modalityId) return [];
-    return courts.filter(q => q.modalityId === modalityId);
+    return courts.filter(q => q.modalityId === modalityId || q.modalities.some((item) => item.modalityId === modalityId));
   }, [modalityId, courts]);
 
   // Horários baseados no funcionamento da quadra
-  const todosHorarios = useMemo(() => {
-    if (!selectedQuadra) return [];
-    const start = parseInt(selectedQuadra.startTime.split(":")[0]);
-    const end = parseInt(selectedQuadra.endTime.split(":")[0]);
-    const horarios = [];
-    for (let h = start; h < end; h++) {
-      horarios.push(`${h.toString().padStart(2, "0")}:00`);
+  useEffect(() => {
+    if (!dataSelecionada || !quadraId || !modalityId) {
+      setHorarios([]);
+      return;
     }
-    return horarios;
-  }, [selectedQuadra]);
-
-  const horarios = useMemo(() => {
-    if (!dataSelecionada || !quadraId || !selectedQuadra) return [];
-    
-    // Por enquanto, vamos manter um mock de ocupação, mas baseado nos horários reais da quadra
-    const seed = dataSelecionada.getTime() + parseInt(quadraId.slice(-4), 16) || 0;
-    return todosHorarios.map((horario, idx) => {
-      const pseudoRandom = ((seed * (idx + 3)) % 11);
-      return {
-        horario,
-        status: pseudoRandom < 3 ? "reserved" : "available",
-      } as TimeSlot;
+    let active = true;
+    setLoadingHorarios(true);
+    setHorarioSelecionado(null);
+    getPublicAvailabilityAction({
+      companyId: company.id,
+      courtId: quadraId,
+      modalityId,
+      date: formatarDataInput(dataSelecionada),
+    }).then((result) => {
+      if (active) setHorarios(result.success ? result.slots : []);
+    }).catch(() => {
+      if (active) setHorarios([]);
+    }).finally(() => {
+      if (active) setLoadingHorarios(false);
     });
-  }, [dataSelecionada, quadraId, selectedQuadra, todosHorarios]);
-
-  const valorTotal = selectedModality?.pricePerHour || 0;
+    return () => { active = false; };
+  }, [company.id, dataSelecionada, modalityId, quadraId]);
+  const precoHoraSelecionado = selectedQuadra
+    ? selectedQuadra.modalities.find((item) => item.modalityId === modalityId)?.customPrice ??
+      (selectedModality?.pricePerHour || selectedQuadra.pricePerHour)
+    : selectedModality?.pricePerHour || 0;
+  const valorTotal = selectedQuadra
+    ? Math.round((precoHoraSelecionado * selectedQuadra.defaultDurationMinutes / 60) * 100) / 100
+    : precoHoraSelecionado;
 
   const handleNextStep = () => {
     if (step === "modalidade" && modalityId) setStep("data");
@@ -325,6 +331,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
+                  {loadingHorarios && <p className="text-sm text-text-secondary mb-4">Consultando horarios...</p>}
                   <div className="flex items-center justify-between mb-6">
                     <button 
                       disabled={diasPage === 0}
@@ -366,6 +373,9 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                       );
                     })}
                   </div>
+                  {!loadingHorarios && horarios.length === 0 && (
+                    <p className="text-sm text-text-secondary text-center py-4">Não há horários disponíveis para esta data.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -421,7 +431,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                           </span>
                           <span className="flex items-center gap-1">
                             <CreditCard size={14} className="text-primary-orange" />
-                            {formatCurrency(q.pricePerHour)}/h
+                            {formatCurrency(q.modalities.find((item) => item.modalityId === modalityId)?.customPrice ?? (selectedModality?.pricePerHour || q.pricePerHour))}/h
                           </span>
                         </div>
                       </div>
@@ -445,6 +455,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
+                  {loadingHorarios && <p className="text-sm text-text-secondary mb-4">Consultando horarios...</p>}
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                     {horarios.map((h) => {
                       const isSelected = horarioSelecionado === h.horario;
@@ -475,6 +486,9 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                       );
                     })}
                   </div>
+                  {!loadingHorarios && horarios.length === 0 && (
+                    <p className="text-sm text-text-secondary text-center py-4">Não há horários disponíveis para esta data.</p>
+                  )}
                 </div>
               </div>
             )}

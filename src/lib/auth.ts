@@ -3,7 +3,13 @@ import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import type { SubscriptionStatus, PlanTier } from "@prisma/client";
 
-const AUTH_SECRET = process.env.AUTH_SECRET || "minha-quadra-dev-secret-change-me-please-2026";
+function getAuthSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("AUTH_SECRET precisa estar configurado com pelo menos 32 caracteres.");
+  }
+  return secret;
+}
 const SESSION_COOKIE = "mq_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
 
@@ -21,7 +27,7 @@ async function getSecretKey(): Promise<CryptoKey> {
   const enc = new TextEncoder();
   secretKeyCache = await crypto.subtle.importKey(
     "raw",
-    enc.encode(AUTH_SECRET),
+    enc.encode(getAuthSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],

@@ -4,7 +4,8 @@ const SESSION_COOKIE = "mq_session";
 
 async function verifySessionToken(token: string): Promise<boolean> {
   try {
-    const AUTH_SECRET = process.env.AUTH_SECRET || "minha-quadra-dev-secret-change-me-please-2026";
+    const AUTH_SECRET = process.env.AUTH_SECRET;
+    if (!AUTH_SECRET || AUTH_SECRET.length < 32) return false;
     const [payloadB64, signatureB64] = token.split(".");
     if (!payloadB64 || !signatureB64) return false;
 

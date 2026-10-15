@@ -3,15 +3,21 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { sanitizePhone } from "@/lib/utils";
-import { BookingStatus, CustomerStatus, CourtStatus, BookingOrigin, PaymentStatus, PaymentMethod, PaymentTransactionStatus } from "@prisma/client";
+import { BookingStatus, CustomerStatus, CourtStatus, BookingOrigin, PaymentStatus, PaymentMethod, PaymentTransactionStatus, Role, Prisma } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
-async function getCompanyOrThrow() {
+async function getCompanyOrThrow(allowedRoles: Role[]) {
   const session = await getSession();
   if (!session) {
     redirect("/login");
   }
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId, companyId: session.companyId },
+    select: { role: true, isActive: true },
+  });
+  if (!user?.isActive) redirect("/login");
+  if (!allowedRoles.includes(user.role)) redirect("/admin?error=forbidden");
   const company = await prisma.company.findUniqueOrThrow({
     where: { id: session.companyId },
   });
@@ -23,7 +29,7 @@ async function getCompanyOrThrow() {
 // ============================================================
 
 export async function createCustomerAction(formData: FormData) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.ATENDENTE]);
 
   const name = formData.get("name") as string;
   const email = (formData.get("email") as string) || null;
@@ -70,7 +76,7 @@ export async function createCustomerAction(formData: FormData) {
 }
 
 export async function updateCustomerAction(formData: FormData) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.ATENDENTE]);
   const id = formData.get("id") as string;
 
   if (!id) return { success: false, error: "ID do cliente não informado." };
@@ -119,7 +125,7 @@ export async function updateCustomerAction(formData: FormData) {
 }
 
 export async function toggleCustomerStatusAction(id: string, newStatus: CustomerStatus) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.ATENDENTE]);
   try {
     await prisma.customer.update({
       where: { id, companyId: company.id },
@@ -134,7 +140,7 @@ export async function toggleCustomerStatusAction(id: string, newStatus: Customer
 }
 
 export async function deleteCustomerAction(id: string) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE]);
   try {
     const countBookings = await prisma.booking.count({
       where: { customerId: id, companyId: company.id },
@@ -155,7 +161,7 @@ export async function deleteCustomerAction(id: string) {
 // ============================================================
 
 export async function createCourtAction(formData: FormData) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE]);
   const name = formData.get("name") as string;
   const modalityId = formData.get("modalityId") as string;
   const pricePerHour = parseFloat(formData.get("pricePerHour") as string) || 0;
@@ -197,7 +203,7 @@ export async function createCourtAction(formData: FormData) {
 }
 
 export async function toggleCourtActiveAction(id: string, newActive: boolean) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE]);
   try {
     await prisma.court.update({
       where: { id, companyId: company.id },
@@ -214,7 +220,7 @@ export async function toggleCourtActiveAction(id: string, newActive: boolean) {
 }
 
 export async function deleteCourtAction(id: string) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE]);
   try {
     const count = await prisma.booking.count({ where: { courtId: id, companyId: company.id } });
     if (count > 0) {
@@ -233,7 +239,7 @@ export async function deleteCourtAction(id: string) {
 // ============================================================
 
 export async function createBookingAction(formData: FormData) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE]);
 
   const courtId = formData.get("courtId") as string;
   const customerId = formData.get("customerId") as string;
@@ -298,56 +304,66 @@ export async function createBookingAction(formData: FormData) {
   const effectivePricePerHour = calculatedPrice / Math.max(horasFromDuration(durationMinutes), 1);
 
   try {
-    const booking = await prisma.booking.create({
-      data: {
-        companyId: company.id,
-        courtId,
-        modalityId: effectiveModalityId,
-        customerId,
-        startTime,
-        endTime,
-        durationMinutes,
-        status,
-        totalPrice: calculatedPrice,
-        customerNameSnapshot: customer.name,
-        customerPhoneSnapshot: customer.phone,
-        pricePerHourSnapshot: effectivePricePerHour,
-        origin,
-        paymentStatus: paid ? PaymentStatus.PAID : PaymentStatus.UNPAID,
-        paidAmount: paid ? calculatedPrice : 0,
-        confirmedAt: status === BookingStatus.CONFIRMED ? new Date() : null,
-        notes,
-      },
-    });
+    const booking = await prisma.$transaction(async (tx) => {
+      const activeConflict = await tx.booking.findFirst({
+        where: {
+          companyId: company.id, courtId,
+          status: { not: BookingStatus.CANCELED },
+          startTime: { lt: endTime }, endTime: { gt: startTime },
+        },
+        select: { id: true },
+      });
+      const blockedConflict = await tx.blockedTime.findFirst({
+        where: {
+          companyId: company.id, isActive: true,
+          OR: [{ courtId: null }, { courtId }],
+          AND: [{ OR: [{ modalityId: null }, { modalityId: effectiveModalityId }] }],
+          startTime: { lt: endTime }, endTime: { gt: startTime },
+        },
+        select: { id: true },
+      });
+      if (activeConflict || blockedConflict) throw new Error("BOOKING_CONFLICT");
 
-    if (paid && calculatedPrice > 0) {
-      await prisma.payment.create({
+      const created = await tx.booking.create({
         data: {
-          companyId: company.id,
-          bookingId: booking.id,
-          customerId,
-          amount: calculatedPrice,
-          paymentMethod,
-          status: PaymentTransactionStatus.PAID,
-          paidAt: new Date(),
+          companyId: company.id, courtId, modalityId: effectiveModalityId,
+          customerId, startTime, endTime, durationMinutes, status,
+          totalPrice: calculatedPrice,
+          customerNameSnapshot: customer.name,
+          customerPhoneSnapshot: customer.phone,
+          pricePerHourSnapshot: effectivePricePerHour,
+          origin,
+          paymentStatus: paid ? PaymentStatus.PAID : PaymentStatus.UNPAID,
+          paidAmount: paid ? calculatedPrice : 0,
+          confirmedAt: status === BookingStatus.CONFIRMED ? new Date() : null,
           notes,
         },
       });
-    }
 
-    const totalAtual = await prisma.booking.aggregate({
-      where: { customerId, companyId: company.id, status: { not: BookingStatus.CANCELED } },
-      _sum: { totalPrice: true },
-      _count: { id: true },
-    });
-    await prisma.customer.update({
-      where: { id: customerId, companyId: company.id },
-      data: {
-        totalSpent: totalAtual._sum.totalPrice || 0,
-        totalBookings: totalAtual._count.id || 0,
-        lastBookingAt: new Date(),
-      },
-    });
+      if (paid && calculatedPrice > 0) {
+        await tx.payment.create({
+          data: {
+            companyId: company.id, bookingId: created.id, customerId,
+            amount: calculatedPrice, paymentMethod,
+            status: PaymentTransactionStatus.PAID, paidAt: new Date(), notes,
+          },
+        });
+      }
+
+      const totalAtual = await tx.booking.aggregate({
+        where: { customerId, companyId: company.id, status: { not: BookingStatus.CANCELED } },
+        _sum: { totalPrice: true }, _count: { id: true },
+      });
+      await tx.customer.update({
+        where: { id: customerId, companyId: company.id },
+        data: {
+          totalSpent: totalAtual._sum.totalPrice || 0,
+          totalBookings: totalAtual._count.id || 0,
+          lastBookingAt: new Date(),
+        },
+      });
+      return created;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     revalidatePath("/admin/agendamentos");
     revalidatePath("/admin");
@@ -355,6 +371,9 @@ export async function createBookingAction(formData: FormData) {
     revalidatePath(`/admin/clientes/${customerId}`);
     return { success: true, message: "Agendamento criado com sucesso!", bookingId: booking.id };
   } catch (e: any) {
+    if (e?.message === "BOOKING_CONFLICT" || e?.code === "P2034") {
+      return { success: false, error: "Este horário acabou de ser ocupado ou bloqueado. Escolha outro." };
+    }
     return { success: false, error: e.message || "Erro ao salvar." };
   }
 }
@@ -364,7 +383,7 @@ function horasFromDuration(mins: number) {
 }
 
 export async function updateBookingStatusAction(id: string, newStatus: BookingStatus) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE]);
   try {
     const data: any = { status: newStatus };
     if (newStatus === BookingStatus.CONFIRMED) data.confirmedAt = new Date();
@@ -384,7 +403,7 @@ export async function updateBookingStatusAction(id: string, newStatus: BookingSt
 }
 
 export async function deleteBookingAction(id: string) {
-  const company = await getCompanyOrThrow();
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE]);
   try {
     await prisma.payment.deleteMany({ where: { bookingId: id, companyId: company.id } });
     const booking = await prisma.booking.delete({

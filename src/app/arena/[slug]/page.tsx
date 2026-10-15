@@ -23,6 +23,7 @@ export default async function ArenaPublicaPage({ params }: ArenaPublicaPageProps
         where: { isActive: true },
         include: {
           modality: true,
+          modalities: true,
         },
         orderBy: { name: "asc" },
       },

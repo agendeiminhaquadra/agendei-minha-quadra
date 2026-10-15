@@ -27,6 +27,9 @@ async function getLayoutData() {
   if (!userLogged) {
     redirect("/login?next=/admin");
   }
+  if (userLogged.role === Role.USER) {
+    redirect("/login?error=forbidden");
+  }
 
   const company = await prisma.company.findUniqueOrThrow({
     where: { id: session.companyId },
