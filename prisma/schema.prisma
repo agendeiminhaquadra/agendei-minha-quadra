@@ -141,6 +141,13 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum PlanPaymentStatus {
+  NOT_SET
+  PENDING
+  PAID
+  OVERDUE
+}
+
 model Company {
   id                            String   @id @default(cuid())
   name                          String
@@ -168,6 +175,8 @@ model Company {
   trialEndsAt                   DateTime
   currentPeriodStart            DateTime?
   currentPeriodEnd              DateTime?
+  monthlyPrice                  Float?
+  paymentStatus                 PlanPaymentStatus @default(NOT_SET)
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 

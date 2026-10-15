@@ -1,0 +1,3 @@
+CREATE TYPE "PlanPaymentStatus" AS ENUM ('NOT_SET', 'PENDING', 'PAID', 'OVERDUE');
+ALTER TABLE "Tenant" ADD COLUMN "monthlyPrice" DOUBLE PRECISION;
+ALTER TABLE "Tenant" ADD COLUMN "paymentStatus" "PlanPaymentStatus" NOT NULL DEFAULT 'NOT_SET';
