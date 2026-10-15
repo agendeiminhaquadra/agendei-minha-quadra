@@ -22,6 +22,7 @@ type ReservationInput = {
 type PublicContext = {
   company: {
     id: string;
+    isSuspended: boolean;
     planStatus: string;
     trialEndsAt: Date;
     currentPeriodEnd: Date | null;
@@ -123,12 +124,12 @@ async function loadPublicContext(input: ReservationInput): Promise<{ context?: P
   const company = await prisma.company.findUnique({
     where: { id: input.companyId },
     select: {
-      id: true, planStatus: true, trialEndsAt: true, currentPeriodEnd: true,
+      id: true, isSuspended: true, planStatus: true, trialEndsAt: true, currentPeriodEnd: true,
       openingTime: true, closingTime: true,
       operatesMondayToFriday: true, operatesSaturday: true, operatesSunday: true,
     },
   });
-  if (!company || !subscriptionAllowsBooking(company)) return { error: "Os agendamentos desta arena estão indisponíveis." };
+  if (!company || company.isSuspended || !subscriptionAllowsBooking(company)) return { error: "Os agendamentos desta arena estão indisponíveis." };
   if (!isCompanyOpenOn(company, input.date)) return { error: "A arena não funciona nesta data." };
 
   const court = await prisma.court.findFirst({

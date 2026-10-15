@@ -21,6 +21,7 @@ async function getCompanyOrThrow(allowedRoles: Role[]) {
   const company = await prisma.company.findUniqueOrThrow({
     where: { id: session.companyId },
   });
+  if (company.isSuspended) redirect("/login?error=suspended");
   return company;
 }
 

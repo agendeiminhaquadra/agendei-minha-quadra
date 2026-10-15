@@ -40,6 +40,7 @@ async function getLayoutData() {
       slug: true,
       planTier: true,
       planStatus: true,
+      isSuspended: true,
       trialStartsAt: true,
       trialEndsAt: true,
       currentPeriodEnd: true,
@@ -49,6 +50,7 @@ async function getLayoutData() {
   const subscription = calcSubscriptionInfo(company);
 
   return {
+    isSuspended: company.isSuspended,
     company: {
       id: company.id,
       name: company.name,
@@ -77,7 +79,19 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { company, user, subscription } = await getLayoutData();
+  const { company, user, subscription, isSuspended } = await getLayoutData();
+
+  if (isSuspended) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-border p-8 text-center">
+          <div className="w-20 h-20 bg-danger-light text-danger rounded-full flex items-center justify-center mx-auto mb-6"><Lock size={40} /></div>
+          <h1 className="text-2xl font-bold text-dark mb-4">Conta suspensa</h1>
+          <p className="text-text-secondary">O acesso desta empresa foi suspenso. Entre em contato com o suporte para mais informações.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Bloqueio se estiver expirado
   if (subscription.isExpired) {

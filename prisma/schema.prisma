@@ -163,6 +163,7 @@ model Company {
   acceptsCard                   Boolean  @default(true)
   planTier                      PlanTier  @default(TRIAL)
   planStatus                    SubscriptionStatus @default(TRIALING)
+  isSuspended                   Boolean  @default(false)
   trialStartsAt                 DateTime  @default(now())
   trialEndsAt                   DateTime
   currentPeriodStart            DateTime?
