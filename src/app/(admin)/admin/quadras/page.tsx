@@ -3,10 +3,12 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { QuadrasClient } from "@/components/admin/QuadrasClient";
 import { CourtStatus } from "@prisma/client";
+import { requirePermission } from "@/lib/permissions";
 
 export const revalidate = 0; // Garantir dados frescos
 
 export default async function QuadrasPage() {
+  await requirePermission("canManagePricing");
   const session = await getSession();
   if (!session) {
     redirect("/login?next=/admin/quadras");

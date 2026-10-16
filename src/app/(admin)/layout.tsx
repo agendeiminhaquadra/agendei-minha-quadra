@@ -21,6 +21,11 @@ async function getLayoutData() {
       email: true,
       avatarUrl: true,
       role: true,
+      canManageBookings: true,
+      canAccessFinance: true,
+      canManagePricing: true,
+      canManageSchedule: true,
+      canManageStaff: true,
     },
   });
 
@@ -72,6 +77,11 @@ async function getLayoutData() {
         .slice(0, 2)
         .join("")
         .toUpperCase(),
+      canManageBookings: userLogged.canManageBookings,
+      canAccessFinance: userLogged.canAccessFinance,
+      canManagePricing: userLogged.canManagePricing,
+      canManageSchedule: userLogged.canManageSchedule,
+      canManageStaff: userLogged.canManageStaff,
     },
     subscription,
   };

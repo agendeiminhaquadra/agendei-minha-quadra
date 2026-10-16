@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { DetalheClienteUI } from "@/components/admin/ClienteDetalheUI";
 import { CustomerStatus } from "@prisma/client";
 import { getSession } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
 
 export const revalidate = 30;
 
 export default async function ClienteDetalhesPage({ params }: { params: { id: string } }) {
+  await requirePermission("canManageBookings");
   const session = await getSession();
   if (!session) {
     redirect("/login");

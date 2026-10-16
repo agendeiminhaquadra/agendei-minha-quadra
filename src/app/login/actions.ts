@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { createSessionToken, setSessionCookie, verifyPassword } from "@/lib/auth";
+import { createSessionToken, getRememberedSessionMaxAge, setSessionCookie, verifyPassword } from "@/lib/auth";
 
 export type LoginResult = {
   ok: boolean;
@@ -16,6 +16,7 @@ export async function loginAction(
 ): Promise<LoginResult> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
+  const remember = formData.get("rememberMe") === "on";
 
   const fieldErrors: LoginResult["fieldErrors"] = {};
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -46,8 +47,9 @@ export async function loginAction(
     return { ok: false, error: "E-mail ou senha incorretos." };
   }
 
-  const token = await createSessionToken(user.id, user.companyId);
-  setSessionCookie(token);
+  const maxAge = remember ? getRememberedSessionMaxAge() : undefined;
+  const token = await createSessionToken(user.id, user.companyId, maxAge);
+  setSessionCookie(token, maxAge);
 
   try {
     await prisma.user.update({

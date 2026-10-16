@@ -3,10 +3,12 @@ import { ListaClientesUI } from "@/components/admin/ClienteListaUI";
 import { CustomerStatus } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { requirePermission } from "@/lib/permissions";
 
 export const revalidate = 60;
 
 export default async function ClientesPage() {
+  await requirePermission("canManageBookings");
   const session = await getSession();
   if (!session) {
     redirect("/login?next=/admin/clientes");

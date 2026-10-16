@@ -18,6 +18,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Role } from "@prisma/client";
+import { logoutAction } from "@/app/actions";
 
 type CompanyData = {
   id: string;
@@ -33,6 +34,11 @@ type UserData = {
   avatarUrl?: string;
   role: Role;
   initials: string;
+  canManageBookings: boolean;
+  canAccessFinance: boolean;
+  canManagePricing: boolean;
+  canManageSchedule: boolean;
+  canManageStaff: boolean;
 };
 
 const menuItems = [
@@ -57,6 +63,11 @@ export function Sidebar({ company, user }: { company: CompanyData; user: UserDat
   if (!isMounted) return null;
 
   const toggleSidebar = () => setIsOpen(!isOpen);
+  const canSeeMenu = (href: string) => user.role === Role.ADMIN || href === "/admin" ||
+    (["/admin/agendamentos", "/admin/clientes"].includes(href) && user.canManageBookings) ||
+    (href === "/admin/quadras" && user.canManagePricing) ||
+    (["/admin/financeiro", "/admin/relatorios"].includes(href) && user.canAccessFinance) ||
+    (href === "/admin/configuracoes" && (user.canManageSchedule || user.canManagePricing || user.canManageStaff));
 
   return (
     <>
@@ -119,7 +130,7 @@ export function Sidebar({ company, user }: { company: CompanyData; user: UserDat
           </div>
 
           <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
-            {menuItems.map((item) => {
+            {menuItems.filter((item) => canSeeMenu(item.href)).map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/admin" && pathname?.startsWith(item.href));
@@ -176,10 +187,9 @@ export function Sidebar({ company, user }: { company: CompanyData; user: UserDat
               <ChevronRight size={16} className="text-text-secondary" />
             </div>
 
-            <button className="flex items-center justify-center gap-2 text-red font-bold text-sm px-4 py-3 w-full hover:bg-red-50 rounded-xl transition-all duration-200">
-              <LogOut size={18} />
-              <span>Sair da conta</span>
-            </button>
+            <form action={logoutAction}><button className="flex items-center justify-center gap-2 text-red font-bold text-sm px-4 py-3 w-full hover:bg-red-50 rounded-xl transition-all duration-200">
+              <LogOut size={18} /><span>Sair da conta</span>
+            </button></form>
           </div>
         </div>
       </aside>

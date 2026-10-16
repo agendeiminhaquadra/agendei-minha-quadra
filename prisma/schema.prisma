@@ -149,38 +149,60 @@ enum PlanPaymentStatus {
 }
 
 model Company {
-  id                            String   @id @default(cuid())
+  id                            String             @id @default(cuid())
   name                          String
-  slug                          String   @unique
+  fantasyName                   String?
+  responsibleName               String?
+  responsibleDocument           String?
+  slug                          String             @unique
   logo                          String?
+  coverImageUrl                 String?
+  description                   String?
   cnpj                          String?
   email                         String?
-  phone                         String   @default("")
-  address                       String   @default("")
+  phone                         String             @default("")
+  whatsapp                      String?
+  address                       String             @default("")
+  streetNumber                  String?
+  complement                    String?
+  neighborhood                  String?
+  postalCode                    String?
   city                          String?
   state                         String?
-  openingTime                   String   @default("08:00")
-  closingTime                   String   @default("23:00")
-  operatesMondayToFriday        Boolean  @default(true)
-  operatesSaturday              Boolean  @default(true)
-  operatesSunday                Boolean  @default(false)
-  defaultCancellationFeePercent Float    @default(0)
-  acceptsPix                    Boolean  @default(true)
-  acceptsCash                   Boolean  @default(true)
-  acceptsCard                   Boolean  @default(true)
-  planTier                      PlanTier  @default(TRIAL)
+  latitude                      Float?
+  longitude                     Float?
+  websiteUrl                    String?
+  instagramUrl                  String?
+  facebookUrl                   String?
+  onlineBookingEnabled          Boolean            @default(true)
+  openingTime                   String             @default("08:00")
+  closingTime                   String             @default("23:00")
+  operatesMondayToFriday        Boolean            @default(true)
+  operatesSaturday              Boolean            @default(true)
+  operatesSunday                Boolean            @default(false)
+  slotIntervalMinutes           Int                @default(60)
+  minBookingNoticeMinutes       Int                @default(0)
+  maxAdvanceBookingDays         Int                @default(30)
+  bookingBufferMinutes          Int                @default(0)
+  cancellationDeadlineHours     Int                @default(24)
+  defaultCancellationFeePercent Float              @default(0)
+  acceptsPix                    Boolean            @default(true)
+  acceptsCash                   Boolean            @default(true)
+  acceptsCard                   Boolean            @default(true)
+  planTier                      PlanTier           @default(TRIAL)
   planStatus                    SubscriptionStatus @default(TRIALING)
-  isSuspended                   Boolean  @default(false)
-  trialStartsAt                 DateTime  @default(now())
+  isSuspended                   Boolean            @default(false)
+  trialStartsAt                 DateTime           @default(now())
   trialEndsAt                   DateTime
   currentPeriodStart            DateTime?
   currentPeriodEnd              DateTime?
   monthlyPrice                  Float?
-  paymentStatus                 PlanPaymentStatus @default(NOT_SET)
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
+  paymentStatus                 PlanPaymentStatus  @default(NOT_SET)
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
 
   users         User[]
+  businessHours BusinessHours[]
   courts        Court[]
   sports        Modality[]
   customers     Customer[]
@@ -193,24 +215,46 @@ model Company {
   @@map("Tenant")
 }
 
+model BusinessHours {
+  id         String  @id @default(cuid())
+  companyId  String  @map("tenantId")
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  weekday    Int
+  isOpen     Boolean @default(true)
+  openTime   String  @default("08:00")
+  closeTime  String  @default("23:00")
+  breakStart String?
+  breakEnd   String?
+
+  @@unique([companyId, weekday])
+  @@index([companyId])
+  @@map("BusinessHours")
+}
+
 // ============================================================
 // 2. USER (usuários do admin — coluna antiga "tenantId" se mantém)
 // ============================================================
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  passwordHash String?
-  phone        String?
-  avatarUrl    String?
-  role         Role      @default(USER)
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  companyId    String    @map("tenantId")
-  company      Company   @relation(fields: [companyId], references: [id])
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String?
+  passwordHash      String?
+  phone             String?
+  avatarUrl         String?
+  role              Role      @default(USER)
+  isActive          Boolean   @default(true)
+  canManageBookings Boolean   @default(true)
+  canCancelBookings Boolean   @default(false)
+  canAccessFinance  Boolean   @default(false)
+  canManagePricing  Boolean   @default(false)
+  canManageSchedule Boolean   @default(false)
+  canManageStaff    Boolean   @default(false)
+  lastLoginAt       DateTime?
+  companyId         String    @map("tenantId")
+  company           Company   @relation(fields: [companyId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   employee Employee?
 

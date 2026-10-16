@@ -42,7 +42,7 @@ export default async function ArenaPublicaPage({ params }: ArenaPublicaPageProps
     (company.planStatus === "TRIALING" && company.trialEndsAt.getTime() < agora.getTime()) ||
     (company.planStatus === "PAST_DUE");
 
-  if (isExpired) {
+  if (isExpired || company.isSuspended || !company.onlineBookingEnabled) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4 text-center">
         <div className="max-w-md bg-white p-8 rounded-2xl shadow-xl border border-border">

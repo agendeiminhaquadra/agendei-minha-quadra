@@ -139,7 +139,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
   }, [company.id, dataSelecionada, modalityId, quadraId]);
   const precoHoraSelecionado = selectedQuadra
     ? selectedQuadra.modalities.find((item) => item.modalityId === modalityId)?.customPrice ??
-      (selectedModality?.pricePerHour || selectedQuadra.pricePerHour)
+      (selectedQuadra.modalityId === modalityId ? selectedQuadra.pricePerHour : (selectedModality?.pricePerHour || selectedQuadra.pricePerHour))
     : selectedModality?.pricePerHour || 0;
   const valorTotal = selectedQuadra
     ? Math.round((precoHoraSelecionado * selectedQuadra.defaultDurationMinutes / 60) * 100) / 100
@@ -252,28 +252,41 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
         <div className="max-w-4xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {company.logo ? (
-              <img src={company.logo} alt={company.name} className="h-12 w-12 object-contain rounded-lg shadow-sm" />
+              <img src={company.logo} alt={company.fantasyName || company.name} className="h-12 w-12 object-contain rounded-lg shadow-sm" />
             ) : (
               <div className="h-12 w-12 bg-gradient-primary rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">
                 {company.name.charAt(0)}
               </div>
             )}
             <div>
-              <h1 className="font-bold text-dark text-lg leading-tight">{company.name}</h1>
+              <h1 className="font-bold text-dark text-lg leading-tight">{company.fantasyName || company.name}</h1>
               <div className="flex items-center text-text-secondary text-xs gap-1">
                 <MapPin size={12} className="text-primary-orange" />
-                <span className="truncate max-w-[200px]">{company.address || "Endereço não informado"}</span>
+                <span className="truncate max-w-[200px]">{[company.address, company.streetNumber, company.neighborhood, company.city, company.state].filter(Boolean).join(", ") || "Endereço não informado"}</span>
               </div>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2 text-text-secondary text-sm font-medium">
             <Phone size={16} className="text-primary-orange" />
-            {company.phone || "(00) 00000-0000"}
+            {company.whatsapp || company.phone || "(00) 00000-0000"}
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
+        {company.coverImageUrl && <img src={company.coverImageUrl} alt={`Foto da arena ${company.fantasyName || company.name}`} className="mb-6 h-44 w-full rounded-2xl object-cover shadow-sm" />}
+        {company.description && <p className="mb-4 text-sm leading-relaxed text-text-secondary">{company.description}</p>}
+        <div className="mb-5 flex flex-wrap gap-4 text-sm">
+          {company.whatsapp && <a className="font-semibold text-emerald-700 underline" href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">Falar pelo WhatsApp</a>}
+          {company.latitude !== null && company.longitude !== null && <a className="font-semibold text-blue-700 underline" href={`https://www.google.com/maps?q=${company.latitude},${company.longitude}`} target="_blank" rel="noreferrer">Ver localização no mapa</a>}
+          {company.instagramUrl && <a className="font-semibold text-orange-700 underline" href={company.instagramUrl} target="_blank" rel="noreferrer">Instagram</a>}
+          {company.facebookUrl && <a className="font-semibold text-orange-700 underline" href={company.facebookUrl} target="_blank" rel="noreferrer">Facebook</a>}
+          {company.websiteUrl && <a className="font-semibold text-orange-700 underline" href={company.websiteUrl} target="_blank" rel="noreferrer">Site</a>}
+        </div>
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-text-secondary">
+          <p>Formas aceitas: {[company.acceptsPix && "Pix", company.acceptsCash && "dinheiro", company.acceptsCard && "cartão"].filter(Boolean).join(", ") || "consulte a arena"}.</p>
+          <p className="mt-1">Política cadastrada: cancelamento sem taxa até {company.cancellationDeadlineHours} hora(s) antes; depois, taxa de até {company.defaultCancellationFeePercent}%.</p>
+        </div>
         {renderStepIndicator()}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -431,7 +444,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                           </span>
                           <span className="flex items-center gap-1">
                             <CreditCard size={14} className="text-primary-orange" />
-                            {formatCurrency(q.modalities.find((item) => item.modalityId === modalityId)?.customPrice ?? (selectedModality?.pricePerHour || q.pricePerHour))}/h
+                            {formatCurrency(q.modalities.find((item) => item.modalityId === modalityId)?.customPrice ?? (q.modalityId === modalityId ? q.pricePerHour : (selectedModality?.pricePerHour || q.pricePerHour)))}/h
                           </span>
                         </div>
                       </div>

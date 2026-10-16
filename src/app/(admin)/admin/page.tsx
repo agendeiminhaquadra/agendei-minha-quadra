@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BookingStatus } from "@prisma/client";
+import { BookingStatus, Role } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
@@ -32,6 +32,14 @@ async function getDashboardData() {
   if (!session) {
     redirect("/login?next=/admin");
   }
+
+  const userLogged = await prisma.user.findFirst({
+    where: { id: session.userId, companyId: session.companyId, isActive: true },
+    select: { name: true, role: true, canManageBookings: true, canAccessFinance: true },
+  });
+  if (!userLogged) redirect("/login");
+  const canAccessFinance = userLogged.role === Role.ADMIN || userLogged.canAccessFinance;
+  const canManageBookings = userLogged.role === Role.ADMIN || userLogged.canManageBookings;
 
   const company = await prisma.company.findUniqueOrThrow({
     where: { id: session.companyId },
@@ -95,7 +103,7 @@ async function getDashboardData() {
     prisma.customer.count({
       where: { companyId: company.id, createdAt: { gte: inicioHoje } },
     }),
-    prisma.booking.findMany({
+    canManageBookings ? prisma.booking.findMany({
       where: {
         companyId: company.id,
         startTime: { gte: inicioHoje, lte: fimHoje },
@@ -107,7 +115,7 @@ async function getDashboardData() {
       },
       orderBy: { startTime: "asc" },
       take: 10,
-    }),
+    }) : Promise.resolve([]),
     prisma.modality.findMany({
       where: { companyId: company.id, isActive: true },
       include: {
@@ -172,27 +180,24 @@ async function getDashboardData() {
     },
   });
 
-  const userLogged = await prisma.user.findUnique({
-    where: { id: session.userId, companyId: session.companyId },
-    select: { name: true },
-  });
-
   return {
     company,
     userName: userLogged?.name || "Administrador",
     reservasHoje,
-    receitaHojeValor,
+    receitaHojeValor: canAccessFinance ? receitaHojeValor : null,
     quadrasAtivas,
     quadrasTotal,
     quadrasManutencao,
     clientesTotal,
     clientesNovosHoje,
     deltaReservas,
-    deltaReceita,
+    deltaReceita: canAccessFinance ? deltaReceita : null,
     pctReservas,
     agendaHojeCompleta,
     modalidadesOcupacao,
-    receitaMes: receitaMes._sum.totalPrice || 0,
+    receitaMes: canAccessFinance ? receitaMes._sum.totalPrice || 0 : null,
+    canAccessFinance,
+    canManageBookings,
   };
 }
 
@@ -218,17 +223,17 @@ export default async function AdminDashboard() {
           }
           positive={data.deltaReservas >= 0}
         />
-        <StatCard
+        {data.canAccessFinance && <StatCard
           title="Receita do Dia"
-          value={formatCurrency(data.receitaHojeValor)}
+          value={formatCurrency(data.receitaHojeValor || 0)}
           icon={<DollarSign className="text-primary-orange" size={24} />}
           change={
-            data.deltaReceita >= 0
-              ? `+${formatCurrency(data.deltaReceita)} vs ontem`
-              : `-${formatCurrency(Math.abs(data.deltaReceita))} vs ontem`
+            (data.deltaReceita || 0) >= 0
+              ? `+${formatCurrency(data.deltaReceita || 0)} vs ontem`
+              : `-${formatCurrency(Math.abs(data.deltaReceita || 0))} vs ontem`
           }
-          positive={data.deltaReceita >= 0}
-        />
+          positive={(data.deltaReceita || 0) >= 0}
+        />}
         <StatCard
           title="Quadras Ativas"
           value={`${data.quadrasAtivas} / ${data.quadrasTotal}`}
@@ -341,7 +346,7 @@ export default async function AdminDashboard() {
             </div>
           </div>
 
-          <div className="card-modern p-6 bg-gradient-primary text-white">
+          {data.canAccessFinance && <div className="card-modern p-6 bg-gradient-primary text-white">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-lg font-bold">Relatório Mensal</h3>
@@ -353,7 +358,7 @@ export default async function AdminDashboard() {
             </div>
             <div className="space-y-4">
               <div className="flex items-end justify-between">
-                <span className="text-3xl font-black">{formatCurrency(data.receitaMes)}</span>
+                <span className="text-3xl font-black">{formatCurrency(data.receitaMes || 0)}</span>
               </div>
               <p className="text-sm text-white/80 leading-relaxed">
                 Total de receita gerada pelo complexo esportivo no mês corrente.
@@ -362,7 +367,7 @@ export default async function AdminDashboard() {
                 Ver Relatório Completo
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

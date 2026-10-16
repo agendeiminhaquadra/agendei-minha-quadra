@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AgendamentosClient } from "@/components/admin/AgendamentosClient";
+import { requirePermission } from "@/lib/permissions";
 
 export const revalidate = 0;
 
@@ -12,6 +13,7 @@ interface PageProps {
 }
 
 export default async function AgendamentosPage({ searchParams }: PageProps) {
+  await requirePermission("canManageBookings");
   const session = await getSession();
   if (!session) {
     redirect("/login?next=/admin/agendamentos");

@@ -1,4 +1,7 @@
-export default function Page() {
+import { requirePermission } from "@/lib/permissions";
+
+export default async function Page() {
+  await requirePermission("canAccessFinance");
   return (
     <div className="card-modern p-12 flex flex-col items-center justify-center text-center">
       <div className="w-20 h-20 bg-orange-50 rounded-full flex items-center justify-center text-primary-orange mb-6">

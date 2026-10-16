@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, ArrowRight, Eye, EyeOff, CheckCircle2 } from "lucide-react";
@@ -30,6 +30,22 @@ function LoginContent() {
   const created = searchParams.get("created");
   const [state, formAction] = useFormState(loginAction, initialState);
   const [showPw, setShowPw] = useState(false);
+  const [email, setEmail] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    try {
+      const savedEmail = localStorage.getItem("mq_saved_email");
+      if (savedEmail) { setEmail(savedEmail); setRememberMe(true); }
+    } catch { /* armazenamento local indisponível neste navegador */ }
+  }, []);
+
+  function handleRememberPreference() {
+    try {
+      if (rememberMe && email.trim()) localStorage.setItem("mq_saved_email", email.trim());
+      else localStorage.removeItem("mq_saved_email");
+    } catch { /* armazenamento local indisponível neste navegador */ }
+  }
 
   if (state.ok) {
     const nextUrl = searchParams.get("next");
@@ -122,7 +138,7 @@ function LoginContent() {
             </Link>
           </p>
 
-          <form action={formAction} className="space-y-5">
+          <form action={formAction} onSubmit={handleRememberPreference} className="space-y-5">
             <div>
               <label className="block text-sm font-bold text-dark mb-2">
                 Seu e-mail
@@ -132,6 +148,8 @@ function LoginContent() {
                 name="email"
                 required
                 autoComplete="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="voce@suaarena.com.br"
                 className={cn(
                   "w-full px-4 py-3.5 rounded-xl border bg-white text-dark placeholder:text-gray-400 outline-none transition-all",
@@ -143,6 +161,11 @@ function LoginContent() {
                 <p className="mt-1.5 text-sm text-red-600 font-medium">{state.fieldErrors.email}</p>
               )}
             </div>
+
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <input type="checkbox" name="rememberMe" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="h-4 w-4 accent-[#FF8A00]" />
+              Lembrar meu e-mail e manter conectado por 30 dias neste dispositivo
+            </label>
 
             <div>
               <div className="flex items-center justify-between mb-2">

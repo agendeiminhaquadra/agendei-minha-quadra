@@ -31,6 +31,13 @@ type PublicContext = {
     operatesMondayToFriday: boolean;
     operatesSaturday: boolean;
     operatesSunday: boolean;
+    slotIntervalMinutes: number;
+    minBookingNoticeMinutes: number;
+    maxAdvanceBookingDays: number;
+    bookingBufferMinutes: number;
+    breakStart?: string | null;
+    breakEnd?: string | null;
+    onlineBookingEnabled: boolean;
   };
   court: {
     id: string;
@@ -127,10 +134,24 @@ async function loadPublicContext(input: ReservationInput): Promise<{ context?: P
       id: true, isSuspended: true, planStatus: true, trialEndsAt: true, currentPeriodEnd: true,
       openingTime: true, closingTime: true,
       operatesMondayToFriday: true, operatesSaturday: true, operatesSunday: true,
+      slotIntervalMinutes: true, minBookingNoticeMinutes: true, maxAdvanceBookingDays: true,
+      bookingBufferMinutes: true, onlineBookingEnabled: true,
     },
   });
   if (!company || company.isSuspended || !subscriptionAllowsBooking(company)) return { error: "Os agendamentos desta arena estão indisponíveis." };
-  if (!isCompanyOpenOn(company, input.date)) return { error: "A arena não funciona nesta data." };
+  const parts = dateParts(input.date);
+  if (!parts) return { error: "Data inválida." };
+  const weekday = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2])).getUTCDay();
+  const weeklyHours = await prisma.businessHours.findUnique({ where: { companyId_weekday: { companyId: company.id, weekday } } });
+  const isOpen = weeklyHours ? weeklyHours.isOpen : isCompanyOpenOn(company, input.date);
+  if (!isOpen || !company.onlineBookingEnabled) return { error: "A arena não aceita reservas online nesta data." };
+  const scheduledCompany = {
+    ...company,
+    openingTime: weeklyHours?.openTime || company.openingTime,
+    closingTime: weeklyHours?.closeTime || company.closingTime,
+    breakStart: weeklyHours?.breakStart || null,
+    breakEnd: weeklyHours?.breakEnd || null,
+  };
 
   const court = await prisma.court.findFirst({
     where: { id: input.courtId, companyId: company.id },
@@ -154,8 +175,8 @@ async function loadPublicContext(input: ReservationInput): Promise<{ context?: P
   const durationMinutes = court.defaultDurationMinutes;
   const courtStart = timeToMinutes(court.startTime);
   const courtEnd = timeToMinutes(court.endTime);
-  const companyStart = timeToMinutes(company.openingTime);
-  const companyEnd = timeToMinutes(company.closingTime);
+  const companyStart = timeToMinutes(scheduledCompany.openingTime);
+  const companyEnd = timeToMinutes(scheduledCompany.closingTime);
   if (courtStart === null || courtEnd === null || companyStart === null || companyEnd === null || durationMinutes < 15 || durationMinutes > 480) {
     return { error: "O horário escolhido está fora do funcionamento da arena." };
   }
@@ -163,18 +184,22 @@ async function loadPublicContext(input: ReservationInput): Promise<{ context?: P
   let endDateTime: Date | undefined;
   if (input.startTime) {
     const startMinute = timeToMinutes(input.startTime);
+    const slotOrigin = Math.max(courtStart, companyStart);
     startDateTime = localArenaDateTime(input.date, input.startTime) || undefined;
     if (
       startMinute === null || !startDateTime ||
       startMinute < Math.max(courtStart, companyStart) ||
       startMinute + durationMinutes > Math.min(courtEnd, companyEnd) ||
-      startMinute % 15 !== 0 || startDateTime.getTime() <= Date.now()
+      (startMinute - slotOrigin) % company.slotIntervalMinutes !== 0 ||
+      startDateTime.getTime() - Date.now() < company.minBookingNoticeMinutes * 60_000 ||
+      startDateTime.getTime() - Date.now() > company.maxAdvanceBookingDays * 24 * 60 * 60_000 ||
+      (scheduledCompany.breakStart && scheduledCompany.breakEnd && startMinute < timeToMinutes(scheduledCompany.breakEnd)! && startMinute + durationMinutes > timeToMinutes(scheduledCompany.breakStart)!)
     ) return { error: "O horário escolhido está fora do funcionamento da arena." };
     endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60_000);
   }
-  const pricePerHour = courtModality?.customPrice ?? (modality.pricePerHour || court.pricePerHour);
+  const pricePerHour = courtModality?.customPrice ?? (court.modalityId === modality.id ? court.pricePerHour : (modality.pricePerHour || court.pricePerHour));
   return {
-    context: { company, court, modality, startDateTime, endDateTime, durationMinutes, pricePerHour },
+    context: { company: scheduledCompany, court, modality, startDateTime, endDateTime, durationMinutes, pricePerHour },
   };
 }
 
@@ -199,7 +224,7 @@ export async function getPublicAvailabilityAction(input: ReservationInput) {
       where: {
         companyId: company.id, courtId: court.id,
         status: { not: BookingStatus.CANCELED },
-        startTime: { lt: dayEnd }, endTime: { gt: dayStart },
+        startTime: { lt: new Date(dayEnd.getTime() + company.bookingBufferMinutes * 60_000) }, endTime: { gt: new Date(dayStart.getTime() - company.bookingBufferMinutes * 60_000) },
       },
       select: { startTime: true, endTime: true },
     }),
@@ -215,12 +240,16 @@ export async function getPublicAvailabilityAction(input: ReservationInput) {
   ]);
 
   const slots: { horario: string; status: "available" | "reserved" }[] = [];
-  for (let minute = firstSlot; minute + durationMinutes <= lastSlot; minute += durationMinutes) {
+  for (let minute = firstSlot; minute + durationMinutes <= lastSlot; minute += company.slotIntervalMinutes) {
     const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
     const start = localArenaDateTime(input.date, time);
-    if (!start || start.getTime() <= Date.now()) continue;
+    const millisecondsUntilStart = start ? start.getTime() - Date.now() : -1;
+    if (!start || millisecondsUntilStart < company.minBookingNoticeMinutes * 60_000 || millisecondsUntilStart > company.maxAdvanceBookingDays * 24 * 60 * 60_000) continue;
     const end = new Date(start.getTime() + durationMinutes * 60_000);
-    const occupied = bookings.some((booking) => booking.startTime < end && booking.endTime > start) ||
+    const breaksForLunch = company.breakStart && company.breakEnd && minute < timeToMinutes(company.breakEnd)! && minute + durationMinutes > timeToMinutes(company.breakStart)!;
+    const blockedStart = new Date(start.getTime() - company.bookingBufferMinutes * 60_000);
+    const blockedEnd = new Date(end.getTime() + company.bookingBufferMinutes * 60_000);
+    const occupied = Boolean(breaksForLunch) || bookings.some((booking) => booking.startTime < blockedEnd && booking.endTime > blockedStart) ||
       blockedTimes.some((blocked) => blocked.startTime < end && blocked.endTime > start);
     slots.push({ horario: time, status: occupied ? "reserved" : "available" });
   }
@@ -250,11 +279,13 @@ export async function createPublicBookingAction(data: ReservationInput & {
 
   try {
     const booking = await prisma.$transaction(async (tx) => {
+      const blockedStart = new Date(startDateTime.getTime() - company.bookingBufferMinutes * 60_000);
+      const blockedEnd = new Date(endDateTime.getTime() + company.bookingBufferMinutes * 60_000);
       const overlappingBooking = await tx.booking.findFirst({
         where: {
           companyId: company.id, courtId: court.id,
           status: { not: BookingStatus.CANCELED },
-          startTime: { lt: endDateTime }, endTime: { gt: startDateTime },
+          startTime: { lt: blockedEnd }, endTime: { gt: blockedStart },
         },
         select: { id: true },
       });

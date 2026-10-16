@@ -12,6 +12,7 @@ function getAuthSecret(): string {
 }
 const SESSION_COOKIE = "mq_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
+const REMEMBERED_SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 dias
 
 export type SessionPayload = {
   userId: string;
@@ -71,13 +72,13 @@ async function verifyPayload(payloadB64: string, signatureB64: string): Promise<
   }
 }
 
-export async function createSessionToken(userId: string, companyId: string): Promise<string> {
+export async function createSessionToken(userId: string, companyId: string, maxAge = SESSION_MAX_AGE): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const payload: SessionPayload = {
     userId,
     companyId,
     iat: now,
-    exp: now + SESSION_MAX_AGE,
+    exp: now + maxAge,
   };
   const enc = new TextEncoder();
   const payloadB64 = base64UrlEncode(enc.encode(JSON.stringify(payload)).buffer);
@@ -100,15 +101,19 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
   }
 }
 
-export function setSessionCookie(token: string) {
+export function setSessionCookie(token: string, maxAge = SESSION_MAX_AGE) {
   const c = cookies();
   c.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    maxAge,
   });
+}
+
+export function getRememberedSessionMaxAge() {
+  return REMEMBERED_SESSION_MAX_AGE;
 }
 
 export function deleteSessionCookie() {
