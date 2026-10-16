@@ -23,7 +23,6 @@ import { logoutAction } from "@/app/actions";
 type CompanyData = {
   id: string;
   name: string;
-  logo?: string;
   slug: string;
 };
 
@@ -94,37 +93,14 @@ export function Sidebar({ company, user }: { company: CompanyData; user: UserDat
       >
         <div className="flex flex-col h-full">
           <div className="p-6 flex justify-center">
-            <Link href="/admin" className="w-full">
-              <div className="w-full h-32 relative">
-                {company.logo ? (
-                  <img
-                    src={company.logo}
-                    alt={company.name}
-                    className="w-full h-full object-contain"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove("hidden");
-                    }}
-                  />
-                ) : null}
-                <div
-                  className={cn(
-                    "w-full h-full bg-gradient-primary rounded-xl flex flex-col items-center justify-center text-white px-3 gap-1",
-                    company.logo && "hidden",
-                  )}
-                >
-                  <p className="font-black text-4xl leading-none drop-shadow-md">
-                    {company.name
-                      .split(" ")
-                      .map((p) => p[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase()}
-                  </p>
-                  <p className="text-[11px] font-bold tracking-[0.18em] uppercase opacity-90 truncate w-full text-center mt-1">
-                    {company.name}
-                  </p>
-                </div>
+            <Link href="/admin" className="w-full" aria-label={`Painel ${company.name} — Agendei Minha Quadra`}>
+              <div className="w-full h-32 overflow-hidden rounded-xl border border-slate-800 bg-[#070B14] shadow-sm">
+                <img
+                  src="/logo.png"
+                  alt="Agendei Minha Quadra"
+                  className="h-full w-full object-contain"
+                  draggable={false}
+                />
               </div>
             </Link>
           </div>
