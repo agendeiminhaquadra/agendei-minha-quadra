@@ -19,7 +19,9 @@ import {
   CreditCard,
   Home,
   Trophy,
-  Sun
+  Sun,
+  ShieldCheck,
+  MessageCircle,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import type { Company, Court, Modality } from "@prisma/client";
@@ -248,18 +250,18 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
   return (
     <div className="min-h-screen bg-background font-sans">
       {/* Header Público */}
-      <header className="bg-white border-b border-border sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 h-20 flex items-center justify-between">
+      <header className="bg-white/95 backdrop-blur-md border-b border-border sticky top-0 z-50 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[76px] flex items-center justify-between">
           <div className="flex items-center gap-4">
             {company.logo ? (
-              <img src={company.logo} alt={company.fantasyName || company.name} className="h-12 w-12 object-contain rounded-lg shadow-sm" />
+              <img src={company.logo} alt={company.fantasyName || company.name} className="h-12 w-12 object-contain rounded-2xl shadow-sm ring-1 ring-black/5" />
             ) : (
-              <div className="h-12 w-12 bg-gradient-primary rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">
+              <div className="h-12 w-12 bg-gradient-primary rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-primary-orange/20">
                 {company.name.charAt(0)}
               </div>
             )}
             <div>
-              <h1 className="font-bold text-dark text-lg leading-tight">{company.fantasyName || company.name}</h1>
+              <h1 className="font-extrabold text-dark text-base sm:text-lg leading-tight">{company.fantasyName || company.name}</h1>
               <div className="flex items-center text-text-secondary text-xs gap-1">
                 <MapPin size={12} className="text-primary-orange" />
                 <span className="truncate max-w-[200px]">{[company.address, company.streetNumber, company.neighborhood, company.city, company.state].filter(Boolean).join(", ") || "Endereço não informado"}</span>
@@ -273,29 +275,51 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {company.coverImageUrl && <img src={company.coverImageUrl} alt={`Foto da arena ${company.fantasyName || company.name}`} className="mb-6 h-44 w-full rounded-2xl object-cover shadow-sm" />}
-        {company.description && <p className="mb-4 text-sm leading-relaxed text-text-secondary">{company.description}</p>}
-        <div className="mb-5 flex flex-wrap gap-4 text-sm">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+        {company.coverImageUrl ? (
+          <div className="relative mb-6 overflow-hidden rounded-3xl shadow-lg shadow-slate-900/10">
+            <img src={company.coverImageUrl} alt={`Foto da arena ${company.fantasyName || company.name}`} className="h-44 sm:h-64 w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-5 sm:p-7 text-white">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/75">Reserve seu horário</p>
+              <h2 className="mt-1 text-2xl sm:text-3xl font-black">{company.fantasyName || company.name}</h2>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-orange-500 to-rose-500 px-6 py-8 sm:px-9 sm:py-10 text-white shadow-lg shadow-primary-orange/20">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/75">Agendamento online</p>
+            <h2 className="mt-2 text-3xl sm:text-4xl font-black">{company.fantasyName || company.name}</h2>
+            <p className="mt-2 max-w-2xl text-sm sm:text-base text-white/85">Escolha o esporte, encontre um horário livre e envie sua solicitação de reserva.</p>
+          </div>
+        )}
+        {company.description && <p className="mb-5 max-w-3xl text-sm sm:text-base leading-relaxed text-text-secondary">{company.description}</p>}
+        <div className="mb-6 flex flex-wrap gap-x-5 gap-y-3 text-sm">
           {company.whatsapp && <a className="font-semibold text-emerald-700 underline" href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">Falar pelo WhatsApp</a>}
           {company.latitude !== null && company.longitude !== null && <a className="font-semibold text-blue-700 underline" href={`https://www.google.com/maps?q=${company.latitude},${company.longitude}`} target="_blank" rel="noreferrer">Ver localização no mapa</a>}
           {company.instagramUrl && <a className="font-semibold text-orange-700 underline" href={company.instagramUrl} target="_blank" rel="noreferrer">Instagram</a>}
           {company.facebookUrl && <a className="font-semibold text-orange-700 underline" href={company.facebookUrl} target="_blank" rel="noreferrer">Facebook</a>}
           {company.websiteUrl && <a className="font-semibold text-orange-700 underline" href={company.websiteUrl} target="_blank" rel="noreferrer">Site</a>}
         </div>
-        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4 text-sm text-text-secondary">
-          <p>Formas aceitas: {[company.acceptsPix && "Pix", company.acceptsCash && "dinheiro", company.acceptsCard && "cartão"].filter(Boolean).join(", ") || "consulte a arena"}.</p>
-          <p className="mt-1">Política cadastrada: cancelamento sem taxa até {company.cancellationDeadlineHours} hora(s) antes; depois, taxa de até {company.defaultCancellationFeePercent}%.</p>
+        <div className="mb-8 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-text-secondary">Formas de pagamento</p>
+            <p className="text-sm sm:text-base font-semibold text-dark">{[company.acceptsPix && "Pix", company.acceptsCash && "Dinheiro", company.acceptsCard && "Cart\u00e3o"].filter(Boolean).join(" \u00b7 ") || "Consulte a arena"}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-text-secondary">Pol&#237;tica de cancelamento</p>
+            <p className="text-sm sm:text-base font-semibold text-dark">Sem taxa at&#233; {company.cancellationDeadlineHours}h antes; ap&#243;s esse prazo, taxa de at&#233; {company.defaultCancellationFeePercent}%.</p>
+          </div>
         </div>
         {renderStepIndicator()}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Coluna de Conteúdo Principal */}
           <div className="lg:col-span-2">
             {step === "modalidade" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="text-center md:text-left">
-                  <h2 className="text-2xl font-bold text-dark">Escolha a Modalidade</h2>
+                  <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary-orange">Etapa 1 de 5</p>
+                  <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-dark">Escolha a modalidade</h2>
                   <p className="text-text-secondary">Qual esporte você deseja praticar hoje?</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -307,7 +331,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                         setStep("data");
                       }}
                       className={cn(
-                        "p-6 rounded-2xl border-2 transition-all duration-300 text-left flex items-center gap-4 group hover:shadow-xl",
+                        "p-5 sm:p-6 rounded-3xl border-2 transition-all duration-300 text-left flex items-center gap-4 group hover:-translate-y-1 hover:shadow-xl",
                         modalityId === m.id 
                           ? "border-primary-orange bg-white shadow-lg shadow-primary-orange/5" 
                           : "border-transparent bg-white shadow-sm hover:border-primary-orange/30"
@@ -327,6 +351,14 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                       <ChevronRight size={20} className="text-border group-hover:text-primary-orange transition-colors" />
                     </button>
                   ))}
+                  {modalities.length === 0 && (
+                    <div className="sm:col-span-2 rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center shadow-sm">
+                      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-50 text-primary-orange"><Activity size={26} /></div>
+                      <h3 className="text-lg font-extrabold text-dark">Nenhuma modalidade disponível</h3>
+                      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">A arena ainda não publicou modalidades para agendamento online. Entre em contato para consultar os horários.</p>
+                      {company.whatsapp && <a href={`https://wa.me/${company.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"><MessageCircle size={17} /> Falar com a arena</a>}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -578,40 +610,40 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
             {step === "confirmacao" && (
               <div className="space-y-8 animate-in zoom-in duration-500 max-w-lg mx-auto py-8">
                 {bookingRes?.success ? (
-                  <div className="text-center space-y-6">
-                    <div className="w-24 h-24 bg-success text-white rounded-full flex items-center justify-center mx-auto shadow-xl shadow-success/20">
-                      <CheckCircle2 size={56} />
-                    </div>
-                    <div>
-                      <h2 className="text-3xl font-black text-dark mb-2">Reserva Realizada!</h2>
-                      <p className="text-text-secondary">
-                        Sua reserva para <strong>{selectedModality?.name}</strong> foi recebida. 
-                        Em instantes você receberá uma confirmação.
-                      </p>
-                    </div>
-                    <div className="bg-white rounded-3xl p-8 shadow-sm border border-border text-left">
-                      <div className="space-y-4">
-                        <div className="flex justify-between border-b border-border pb-3">
-                          <span className="text-text-secondary">Protocolo</span>
-                          <span className="font-bold text-dark">#{bookingRes.bookingId?.slice(-6).toUpperCase()}</span>
+                  <section className="mx-auto max-w-xl animate-in zoom-in duration-500">
+                    <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
+                      <div className="bg-gradient-to-br from-emerald-50 via-white to-orange-50 px-6 pb-6 pt-8 text-center sm:px-9">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"><CheckCircle2 size={36} strokeWidth={2.5} /></div>
+                        <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-emerald-700">Solicita&#231;&#227;o registrada</p>
+                        <h2 className="mt-2 text-3xl font-black tracking-tight text-dark">Reserva enviada!</h2>
+                        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">{company.fantasyName || company.name} recebeu os dados. Aguarde a equipe confirmar o hor&#225;rio pelo telefone informado.</p>
+                        <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800"><Clock size={15} /> Aguardando confirma&#231;&#227;o da arena</div>
+                      </div>
+                      <div className="px-5 pb-5 sm:px-7 sm:pb-7">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                          <div className="mb-4 flex items-start justify-between gap-3 border-b border-dashed border-slate-200 pb-4">
+                            <div className="flex items-center gap-3">
+                              {company.logo ? <img src={company.logo} alt="" className="h-11 w-11 rounded-xl object-cover" /> : <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-primary text-lg font-black text-white">{(company.fantasyName || company.name).charAt(0)}</div>}
+                              <div><p className="font-extrabold text-dark">{company.fantasyName || company.name}</p><p className="flex items-center gap-1 text-xs text-text-secondary"><MapPin size={12} className="text-primary-orange" />{company.city || "Arena esportiva"}{company.state ? ", " + company.state : ""}</p></div>
+                            </div>
+                            <div className="shrink-0 text-right"><p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary">Protocolo</p><p className="font-black text-dark">#{bookingRes.bookingId?.slice(-6).toUpperCase()}</p></div>
+                          </div>
+                          <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wider text-text-secondary">Detalhes da reserva</h3>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Trophy size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Modalidade</p><p className="font-bold text-dark">{selectedModality?.name}</p></div></div>
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Building2 size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Quadra</p><p className="font-bold text-dark">{selectedQuadra?.name}</p></div></div>
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Calendar size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Data</p><p className="font-bold capitalize text-dark">{dataSelecionada ? formatarDataCompleta(dataSelecionada) : "\u2014"}</p></div></div>
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Clock size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Hor&#225;rio</p><p className="font-bold text-dark">{horarioSelecionado}</p></div></div>
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-2"><User size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Respons&#225;vel</p><p className="font-bold text-dark">{formData.nome} &#183; {formData.telefone}</p></div></div>
+                          </div>
+                          <div className="mt-4 flex items-center justify-between rounded-xl bg-orange-50 px-4 py-3"><span className="text-sm font-semibold text-text-secondary">Valor previsto &#183; pagamento no local</span><span className="text-lg font-black text-primary-orange">{formatCurrency(valorTotal)}</span></div>
                         </div>
-                        <div className="flex justify-between border-b border-border pb-3">
-                          <span className="text-text-secondary">Data</span>
-                          <span className="font-bold text-dark">{formatarDataSimples(dataSelecionada!)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-text-secondary">Horário</span>
-                          <span className="font-bold text-dark">{horarioSelecionado}</span>
-                        </div>
+                        <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-text-secondary"><ShieldCheck size={17} className="mt-0.5 shrink-0 text-emerald-600" /><p>Guarde o n&#250;mero do protocolo. A reserva s&#243; estar&#225; confirmada ap&#243;s o retorno da equipe da arena.</p></div>
+                        <button onClick={() => window.location.reload()} className="mt-5 w-full rounded-xl bg-gradient-primary px-5 py-4 font-extrabold text-white shadow-lg shadow-primary-orange/20 transition hover:brightness-105">Fazer outra reserva</button>
+                        {company.whatsapp && <a href={'https://wa.me/' + company.whatsapp.replace(/\D/g, "")} target="_blank" rel="noreferrer" className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-5 py-3 font-bold text-emerald-700 transition hover:bg-emerald-50"><MessageCircle size={18} /> Falar com a arena</a>}
                       </div>
                     </div>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="w-full py-4 px-6 rounded-2xl bg-dark text-white font-bold hover:bg-dark/90 transition-all"
-                    >
-                      Voltar para o Início
-                    </button>
-                  </div>
+                  </section>
                 ) : (
                   <>
                     <div className="text-center">

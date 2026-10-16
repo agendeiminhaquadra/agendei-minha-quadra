@@ -13,12 +13,14 @@ function getAuthSecret(): string {
 const SESSION_COOKIE = "mq_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 dias
 const REMEMBERED_SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 dias
+export const SESSION_IDLE_MAX_AGE = 60 * 30; // 30 minutos sem atividade
 
 export type SessionPayload = {
   userId: string;
   companyId: string;
   iat: number;
   exp: number;
+  idleExp?: number;
 };
 
 let secretKeyCache: CryptoKey | null = null;
@@ -79,6 +81,7 @@ export async function createSessionToken(userId: string, companyId: string, maxA
     companyId,
     iat: now,
     exp: now + maxAge,
+    idleExp: now + SESSION_IDLE_MAX_AGE,
   };
   const enc = new TextEncoder();
   const payloadB64 = base64UrlEncode(enc.encode(JSON.stringify(payload)).buffer);
@@ -94,7 +97,8 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
     if (!ok) return null;
     const payloadBytes = base64UrlDecode(payloadB64);
     const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as SessionPayload;
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp < now || (payload.idleExp !== undefined && payload.idleExp < now)) return null;
     return payload;
   } catch {
     return null;
@@ -108,7 +112,7 @@ export function setSessionCookie(token: string, maxAge = SESSION_MAX_AGE) {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge,
+    maxAge: Math.min(maxAge, SESSION_IDLE_MAX_AGE),
   });
 }
 
