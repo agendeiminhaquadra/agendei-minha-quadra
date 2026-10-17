@@ -7,9 +7,17 @@ import {
   registerBookingPaymentAction,
   updateBookingStatusAction,
 } from "@/app/(admin)/admin/actions";
+import { formatCurrency, formatSaoPauloTime } from "@/lib/utils";
 
 type Props = {
   bookingId: string;
+  customerName: string;
+  customerPhone: string | null;
+  courtName: string;
+  modalityName: string | null;
+  startTime: Date;
+  endTime: Date;
+  totalPrice: number;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   canManageBookings: boolean;
@@ -28,6 +36,13 @@ const paymentMethods: { value: PaymentMethod; label: string }[] = [
 
 export function BookingManagementActions({
   bookingId,
+  customerName,
+  customerPhone,
+  courtName,
+  modalityName,
+  startTime,
+  endTime,
+  totalPrice,
   status,
   paymentStatus,
   canManageBookings,
@@ -40,14 +55,50 @@ export function BookingManagementActions({
   const isPaid = paymentStatus === PaymentStatus.PAID;
   const isCancelable = status === BookingStatus.PENDING || status === BookingStatus.CONFIRMED;
 
-  async function updateStatus(nextStatus: BookingStatus) {
+  function openWhatsAppReceipt(windowRef: Window | null) {
+    const digits = customerPhone?.replace(/\D/g, "") || "";
+    if (!digits) {
+      windowRef?.close();
+      window.alert("Reserva confirmada, mas o cadastro do cliente não tem telefone para abrir o WhatsApp.");
+      return;
+    }
+
+    const phone = digits.startsWith("55") && (digits.length === 12 || digits.length === 13)
+      ? digits
+      : `55${digits}`;
+    const bookingDate = startTime.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const message = [
+      `Olá, ${customerName}! Sua reserva foi confirmada.`,
+      "",
+      "COMPROVANTE DE RESERVA",
+      `Protocolo: ${bookingId.slice(-8).toUpperCase()}`,
+      `Quadra: ${courtName}`,
+      `Modalidade: ${modalityName || "Livre"}`,
+      `Data: ${bookingDate}`,
+      `Horário: ${formatSaoPauloTime(startTime)} às ${formatSaoPauloTime(endTime)}`,
+      `Valor: ${formatCurrency(totalPrice)}`,
+      `Pagamento: ${isPaid ? "pago" : "pendente (pagamento no local)"}`,
+      "",
+      "Apresente este comprovante no dia da reserva. Até lá!",
+    ].join("\n");
+
+    if (windowRef) {
+      windowRef.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    } else {
+      window.alert("Reserva confirmada. O navegador bloqueou a abertura do WhatsApp; tente novamente ou confira o telefone do cliente.");
+    }
+  }
+
+  async function updateStatus(nextStatus: BookingStatus, whatsappWindow: Window | null = null) {
     setBusy(true);
     const result = await updateBookingStatusAction(bookingId, nextStatus);
     setBusy(false);
     if (!result.success) {
+      whatsappWindow?.close();
       window.alert(result.error || "Não foi possível atualizar a reserva.");
       return;
     }
+    if (nextStatus === BookingStatus.CONFIRMED) openWhatsAppReceipt(whatsappWindow);
     router.refresh();
   }
 
@@ -65,7 +116,10 @@ export function BookingManagementActions({
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {canManageBookings && status === BookingStatus.PENDING && (
-        <button disabled={busy} onClick={() => updateStatus(BookingStatus.CONFIRMED)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+        <button disabled={busy} onClick={() => {
+          const whatsappWindow = customerPhone ? window.open("about:blank", "_blank") : null;
+          void updateStatus(BookingStatus.CONFIRMED, whatsappWindow);
+        }} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
           Confirmar reserva
         </button>
       )}

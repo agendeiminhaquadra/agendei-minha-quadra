@@ -213,6 +213,13 @@ export function AgendamentosClient({
                             </div>
                             <BookingManagementActions
                               bookingId={booking.id}
+                              customerName={booking.customerNameSnapshot}
+                              customerPhone={booking.customerPhoneSnapshot || booking.customer.phone}
+                              courtName={booking.court.name}
+                              modalityName={booking.modality?.name || null}
+                              startTime={booking.startTime}
+                              endTime={booking.endTime}
+                              totalPrice={booking.totalPrice}
                               status={booking.status}
                               paymentStatus={booking.paymentStatus}
                               canManageBookings
