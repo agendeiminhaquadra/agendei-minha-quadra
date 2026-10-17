@@ -371,9 +371,9 @@ export default async function AdminDashboard() {
               <p className="text-sm text-white/80 leading-relaxed">
                 Pagamentos recebidos e registrados neste mês.
               </p>
-              <button className="w-full py-2.5 bg-white text-primary-orange rounded-xl font-bold text-sm hover:bg-orange-50 transition-colors">
+              <Link href="/admin/relatorios" className="block w-full rounded-xl bg-white py-2.5 text-center text-sm font-bold text-primary-orange transition-colors hover:bg-orange-50">
                 Ver Relatório Completo
-              </button>
+              </Link>
             </div>
           </div>}
         </div>
