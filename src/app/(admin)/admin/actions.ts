@@ -166,6 +166,38 @@ export async function deleteCustomerAction(id: string) {
 // QUADRAS (CRUD)
 // ============================================================
 
+export async function createModalityAction(name: string, pricePerHour: number) {
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE], "canManagePricing");
+  const modalityName = name.trim().replace(/\s+/g, " ");
+  if (modalityName.length < 2 || modalityName.length > 60) {
+    return { success: false, error: "Informe um nome de modalidade entre 2 e 60 caracteres." };
+  }
+  if (!Number.isFinite(pricePerHour) || pricePerHour < 0 || pricePerHour > 100000) {
+    return { success: false, error: "Informe um preço por hora válido." };
+  }
+
+  const exists = await prisma.modality.findFirst({
+    where: { companyId: company.id, name: { equals: modalityName, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (exists) return { success: false, error: "Essa modalidade já está cadastrada." };
+
+  const modality = await prisma.modality.create({
+    data: {
+      companyId: company.id,
+      name: modalityName,
+      pricePerHour,
+      iconName: "trophy",
+      textColorClass: "text-primary-orange",
+      bgColorClass: "bg-primary-orange/10",
+    },
+  });
+  revalidatePath("/admin/quadras");
+  revalidatePath("/admin/configuracoes");
+  revalidatePath(`/arena/${company.slug}`);
+  return { success: true, modality };
+}
+
 export async function createCourtAction(formData: FormData) {
   const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE], "canManagePricing");
   const name = formData.get("name") as string;
@@ -183,6 +215,12 @@ export async function createCourtAction(formData: FormData) {
   if (!name || !modalityId) return { success: false, error: "Nome e modalidade são obrigatórios." };
 
   try {
+    const modality = await prisma.modality.findFirst({
+      where: { id: modalityId, companyId: company.id, isActive: true },
+      select: { id: true },
+    });
+    if (!modality) return { success: false, error: "Selecione uma modalidade ativa desta empresa." };
+
     await prisma.court.create({
       data: {
         companyId: company.id,
