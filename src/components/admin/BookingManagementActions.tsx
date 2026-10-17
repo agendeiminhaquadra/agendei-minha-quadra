@@ -9,6 +9,7 @@ import {
 } from "@/app/(admin)/admin/actions";
 import { MessageCircle } from "lucide-react";
 import { formatCurrency, formatSaoPauloTime } from "@/lib/utils";
+import { BookingConfirmationPreview } from "./BookingConfirmationPreview";
 
 type Props = {
   bookingId: string;
@@ -68,23 +69,23 @@ export function BookingManagementActions({
       timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "long", year: "numeric",
     });
     const message = [
-      "\u2705 *RESERVA CONFIRMADA*",
-      "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+      "*RESERVA CONFIRMADA*",
       "",
       "Ol\u00e1, *" + customerName + "*!",
-      "Sua quadra est\u00e1 reservada. Confira os detalhes:",
+      "Sua reserva foi confirmada. Confira os detalhes:",
       "",
-      "\u{1F3DF}\uFE0F *Quadra:* " + courtName,
-      "\u26BD *Modalidade:* " + (modalityName || "Livre"),
-      "\u{1F4C5} *Data:* " + date,
-      "\u23F0 *Hor\u00e1rio:* " + formatSaoPauloTime(startTime) + " \u00e0s " + formatSaoPauloTime(endTime),
-      "\u{1F4B0} *Valor:* " + formatCurrency(totalPrice),
-      "\u{1F4B3} *Pagamento:* " + (isPaid ? "Pago" : "Pendente \u2014 pagamento no local"),
-      "\u{1F516} *Protocolo:* " + bookingId.slice(-8).toUpperCase(),
+      "*DADOS DA RESERVA*",
+      "*Quadra:* " + courtName,
+      "*Modalidade:* " + (modalityName || "Livre"),
+      "*Data:* " + date,
+      "*Hor\u00e1rio:* " + formatSaoPauloTime(startTime) + " \u00e0s " + formatSaoPauloTime(endTime),
+      "*Valor:* " + formatCurrency(totalPrice),
+      "*Pagamento:* " + (isPaid ? "Pago" : "Pendente (pagamento no local)"),
+      "*Protocolo:* " + bookingId.slice(-8).toUpperCase(),
       "",
-      "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+      "*IMPORTANTE*",
       "Apresente esta confirma\u00e7\u00e3o no dia da reserva.",
-      "Agradecemos pela prefer\u00eancia. Boa partida! \u26bd",
+      "Agradecemos pela prefer\u00eancia. Boa partida!",
     ].join("\n");
 
     window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
@@ -139,9 +140,21 @@ export function BookingManagementActions({
       )}
       {canAccessFinance && isPaid && <span className="text-xs font-bold text-emerald-700">Pagamento recebido</span>}
       {canManageBookings && status === BookingStatus.CONFIRMED && (
-        <button onClick={openWhatsAppConfirmation} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">
-          <MessageCircle size={14} /> Abrir confirma\u00e7\u00e3o no WhatsApp
-        </button>
+        <>
+          <BookingConfirmationPreview
+            bookingId={bookingId}
+            customerName={customerName}
+            courtName={courtName}
+            modalityName={modalityName}
+            startTime={startTime}
+            endTime={endTime}
+            totalPrice={totalPrice}
+            isPaid={isPaid}
+          />
+          <button onClick={openWhatsAppConfirmation} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">
+            <MessageCircle size={14} /> Abrir WhatsApp
+          </button>
+        </>
       )}
     </div>
   );
