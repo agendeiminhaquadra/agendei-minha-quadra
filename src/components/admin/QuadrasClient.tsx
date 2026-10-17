@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -14,10 +15,13 @@ import {
   Trophy,
   MapPin,
   CalendarCheck,
+  Trash2,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Court, Modality, CourtStatus } from "@prisma/client";
 import { CourtFormModal } from "./forms/CourtFormModal";
+import { Modal } from "@/components/ui/Modal";
+import { deleteCourtAction, toggleCourtActiveAction } from "@/app/(admin)/admin/actions";
 
 interface QuadrasClientProps {
   initialQuadras: (Court & { 
@@ -70,7 +74,11 @@ function IconForModality({ name }: { name: string }) {
 }
 
 export function QuadrasClient({ initialQuadras, modalities, stats }: QuadrasClientProps) {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCourt, setEditingCourt] = useState<Court | undefined>();
+  const [viewingCourt, setViewingCourt] = useState<(Court & { modality: Modality | null }) | null>(null);
+  const [managingCourt, setManagingCourt] = useState<Court | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
@@ -83,6 +91,21 @@ export function QuadrasClient({ initialQuadras, modalities, stats }: QuadrasClie
 
   const totalAtivas = initialQuadras.filter((q) => q.isActive && q.status === "ACTIVE").length;
   const totalManutencao = initialQuadras.filter((q) => q.status === "MAINTENANCE").length;
+
+  async function toggleCourt(court: Court) {
+    const result = await toggleCourtActiveAction(court.id, !court.isActive);
+    if (!result.success) return window.alert(result.error || "Não foi possível atualizar a quadra.");
+    setManagingCourt(null);
+    router.refresh();
+  }
+
+  async function removeCourt(court: Court) {
+    if (!window.confirm(`Excluir a quadra ${court.name}? Essa ação não pode ser desfeita.`)) return;
+    const result = await deleteCourtAction(court.id);
+    if (!result.success) return window.alert(result.error || "Não foi possível excluir a quadra.");
+    setManagingCourt(null);
+    router.refresh();
+  }
 
   return (
     <div className="space-y-6">
@@ -126,7 +149,7 @@ export function QuadrasClient({ initialQuadras, modalities, stats }: QuadrasClie
             </p>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => { setEditingCourt(undefined); setIsModalOpen(true); }}
             className="btn-primary flex items-center gap-2 py-2.5 px-5 whitespace-nowrap"
           >
             <Plus size={18} />
@@ -194,13 +217,13 @@ export function QuadrasClient({ initialQuadras, modalities, stats }: QuadrasClie
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button className="p-2 text-text-secondary hover:text-dark hover:bg-background-light rounded-lg transition-colors">
+                    <button title="Ver detalhes" onClick={() => setViewingCourt(q)} className="p-2 text-text-secondary hover:text-dark hover:bg-background-light rounded-lg transition-colors">
                       <Eye size={16} />
                     </button>
-                    <button className="p-2 text-text-secondary hover:text-primary-orange hover:bg-orange-50 rounded-lg transition-colors">
+                    <button title="Editar quadra" onClick={() => { setEditingCourt(q); setIsModalOpen(true); }} className="p-2 text-text-secondary hover:text-primary-orange hover:bg-orange-50 rounded-lg transition-colors">
                       <Edit size={16} />
                     </button>
-                    <button className="p-2 text-text-secondary hover:text-dark hover:bg-background-light rounded-lg transition-colors">
+                    <button title="Mais ações" onClick={() => setManagingCourt(q)} className="p-2 text-text-secondary hover:text-dark hover:bg-background-light rounded-lg transition-colors">
                       <MoreVertical size={16} />
                     </button>
                   </div>
@@ -267,10 +290,46 @@ export function QuadrasClient({ initialQuadras, modalities, stats }: QuadrasClie
       </div>
 
       <CourtFormModal 
+        key={editingCourt?.id || "new-court"}
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         modalities={modalities}
+        initial={editingCourt}
       />
+
+      <Modal isOpen={Boolean(viewingCourt)} onClose={() => setViewingCourt(null)} title={viewingCourt?.name || "Detalhes da quadra"}>
+        {viewingCourt && <div className="space-y-4 text-sm">
+          <p className="text-text-secondary">{viewingCourt.description || "Sem descrição cadastrada."}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Detail label="Modalidade" value={viewingCourt.modality?.name || "—"} />
+            <Detail label="Preço por hora" value={formatCurrency(viewingCourt.pricePerHour)} />
+            <Detail label="Funcionamento" value={`${viewingCourt.startTime} – ${viewingCourt.endTime}`} />
+            <Detail label="Duração padrão" value={`${viewingCourt.defaultDurationMinutes} min`} />
+            <Detail label="Capacidade" value={String(viewingCourt.capacity || "—")} />
+            <Detail label="Piso" value={viewingCourt.floorType || "—"} />
+            <Detail label="Cobertura" value={viewingCourt.isCovered ? "Coberta" : "Descoberta"} />
+            <Detail label="Iluminação" value={viewingCourt.hasLighting ? "Possui" : "Não possui"} />
+            <Detail label="Status" value={viewingCourt.isActive ? "Ativa" : viewingCourt.status === "MAINTENANCE" ? "Em manutenção" : "Inativa"} />
+          </div>
+          <button onClick={() => { setViewingCourt(null); setEditingCourt(viewingCourt); setIsModalOpen(true); }} className="btn-primary w-full py-2.5">Editar quadra</button>
+        </div>}
+      </Modal>
+
+      <Modal isOpen={Boolean(managingCourt)} onClose={() => setManagingCourt(null)} title="Ações da quadra">
+        {managingCourt && <div className="space-y-3">
+          <p className="text-sm text-text-secondary">{managingCourt.name}</p>
+          <button onClick={() => void toggleCourt(managingCourt)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-50 px-4 py-3 text-sm font-bold text-primary-orange hover:bg-orange-100">
+            <Power size={17} /> {managingCourt.isActive ? "Pausar e marcar manutenção" : "Reativar quadra"}
+          </button>
+          <button onClick={() => void removeCourt(managingCourt)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red hover:bg-red-100">
+            <Trash2 size={17} /> Excluir quadra
+          </button>
+        </div>}
+      </Modal>
     </div>
   );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl bg-background-light/60 p-3"><p className="text-[10px] font-bold uppercase text-text-secondary">{label}</p><p className="mt-1 font-bold text-dark">{value}</p></div>;
 }

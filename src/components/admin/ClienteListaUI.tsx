@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -24,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { Customer, CustomerStatus } from "@prisma/client";
 import { CustomerFormModal, useCustomerModal, CustomerFormInitial } from "@/components/admin/forms/CustomerFormModal";
 import { Modal } from "@/components/admin/forms/FormPrimitives";
-import { toggleCustomerStatusAction, deleteCustomerAction } from "@/app/(admin)/admin/actions";
+import { toggleCustomerStatusAction, deleteCustomerAction, mergeCustomerRecordsAction } from "@/app/(admin)/admin/actions";
 import { buildWhatsAppLink } from "@/lib/utils";
 import { useTransition } from "react";
 
@@ -37,9 +38,34 @@ export function ListaClientesUI({ clientes, total, ativos, inativos, bloqueados 
   inativos: number;
   bloqueados: number;
 }) {
+  const router = useRouter();
   const customerModal = useCustomerModal();
   const [confirmDelete, setConfirmDelete] = useState<CustomerWithCounts | null>(null);
   const [pendingAction, startAction] = useTransition();
+  const normalizeName = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+  const duplicateGroups = Object.values(clientes.reduce<Record<string, CustomerWithCounts[]>>((groups, customer) => {
+    const key = normalizeName(customer.name);
+    groups[key] = [...(groups[key] || []), customer];
+    return groups;
+  }, {})).filter((group) => group.length > 1);
+
+  function mergeGroup(group: CustomerWithCounts[]) {
+    const ordered = [...group].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const primary = ordered[0];
+    const duplicates = ordered.slice(1);
+    const contactList = ordered.map((c) => `${c.phone || "sem telefone"} / ${c.email || "sem e-mail"}`).join("\n");
+    if (!window.confirm(`Estes cadastros têm o mesmo nome, mas podem ter contatos diferentes:\n\n${contactList}\n\nSe forem a mesma pessoa, mesclar tudo no cadastro mais antigo? As reservas e pagamentos serão preservados.`)) return;
+    startAction(async () => {
+      for (const duplicate of duplicates) {
+        const result = await mergeCustomerRecordsAction(primary.id, duplicate.id);
+        if (!result.success) {
+          window.alert(result.error || "Não foi possível mesclar os cadastros.");
+          return;
+        }
+      }
+      router.refresh();
+    });
+  }
 
   function formatPhone(p: string | null) {
     if (!p) return "—";
@@ -120,6 +146,19 @@ export function ListaClientesUI({ clientes, total, ativos, inativos, bloqueados 
       </div>
 
       <div className="card-modern">
+        {duplicateGroups.length > 0 && <div className="space-y-3 border-b border-amber-200 bg-amber-50 p-5">
+          <div>
+            <p className="font-bold text-amber-900">Encontramos cadastros com o mesmo nome</p>
+            <p className="mt-1 text-sm text-amber-800">Confira telefone e e-mail. Se forem da mesma pessoa, você pode unificar os registros e preservar as reservas.</p>
+          </div>
+          {duplicateGroups.map((group) => <div key={group[0].id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-white p-3">
+            <div className="min-w-0">
+              <p className="font-bold text-dark">{group[0].name} · {group.length} cadastros</p>
+              <p className="mt-1 break-words text-xs text-text-secondary">{group.map((c) => `${c.phone || "sem telefone"} / ${c.email || "sem e-mail"}`).join("  ·  ")}</p>
+            </div>
+            <button type="button" disabled={pendingAction} onClick={() => mergeGroup(group)} className="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50">Unificar cadastros</button>
+          </div>)}
+        </div>}
         <div className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border">
           <div>
             <h3 className="text-xl font-black text-dark">Gestão de Clientes</h3>

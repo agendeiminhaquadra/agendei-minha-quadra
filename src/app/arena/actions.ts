@@ -9,7 +9,7 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { sanitizePhone } from "@/lib/utils";
+import { normalizePhoneDigits, phoneLookupVariants, sanitizePhone } from "@/lib/utils";
 
 type ReservationInput = {
   companyId: string;
@@ -262,9 +262,9 @@ export async function createPublicBookingAction(data: ReservationInput & {
 }) {
   if (!data || !data.customer) return { success: false, error: "Dados incompletos para a reserva." };
   const name = data.customer?.name?.trim();
-  const phoneDigits = data.customer?.phone?.replace(/\D/g, "") || "";
+  const phoneDigits = normalizePhoneDigits(data.customer?.phone || "");
   const email = data.customer?.email?.trim().toLowerCase() || null;
-  if (!name || name.length < 3 || name.length > 120 || phoneDigits.length < 10 || phoneDigits.length > 15) {
+  if (!name || name.length < 3 || name.length > 120 || phoneDigits.length < 10 || phoneDigits.length > 11) {
     return { success: false, error: "Informe um nome e telefone válidos." };
   }
   if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
@@ -277,6 +277,7 @@ export async function createPublicBookingAction(data: ReservationInput & {
   if (!loaded.context.startDateTime || !loaded.context.endDateTime) return { success: false, error: "Horário inválido." };
   const { startDateTime, endDateTime } = loaded.context;
   const phone = sanitizePhone(phoneDigits);
+  const phoneVariants = phoneLookupVariants(data.customer.phone);
 
   try {
     const booking = await prisma.$transaction(async (tx) => {
@@ -302,8 +303,16 @@ export async function createPublicBookingAction(data: ReservationInput & {
       if (overlappingBooking || overlappingBlock) throw new Error("SLOT_TAKEN");
 
       let customer = await tx.customer.findFirst({
-        where: { companyId: company.id, OR: [{ phone }, ...(email ? [{ email }] : [])] },
+        where: { companyId: company.id, OR: [{ phone: { in: phoneVariants } }, ...(email ? [{ email }] : [])] },
       });
+      if (!customer) {
+        const priorBooking = await tx.booking.findFirst({
+          where: { companyId: company.id, customerPhoneSnapshot: { in: phoneVariants } },
+          orderBy: { createdAt: "desc" },
+          include: { customer: true },
+        });
+        customer = priorBooking?.customer || null;
+      }
       if (customer?.status === CustomerStatus.BLOQUEADO) throw new Error("CUSTOMER_BLOCKED");
       if (!customer) {
         customer = await tx.customer.create({

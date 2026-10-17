@@ -6,22 +6,26 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
-import { createCourtAction, createModalityAction } from "@/app/(admin)/admin/actions";
-import { Modality } from "@prisma/client";
+import { createCourtAction, createModalityAction, updateCourtAction } from "@/app/(admin)/admin/actions";
+import { Court, Modality } from "@prisma/client";
 import { Plus, Trophy } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface CourtFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   modalities: Modality[];
+  initial?: Court;
 }
 
-export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalProps) {
+export function CourtFormModal({ isOpen, onClose, modalities, initial }: CourtFormModalProps) {
+  const router = useRouter();
+  const isEditing = Boolean(initial);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableModalities, setAvailableModalities] = useState(modalities);
   const [showModalityForm, setShowModalityForm] = useState(modalities.length === 0);
-  const [selectedModalityId, setSelectedModalityId] = useState("");
+  const [selectedModalityId, setSelectedModalityId] = useState(initial?.modalityId || "");
   const [modalityName, setModalityName] = useState("");
   const [modalityPrice, setModalityPrice] = useState("120");
   const [modalityError, setModalityError] = useState<string | null>(null);
@@ -35,10 +39,11 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
     const formData = new FormData(e.currentTarget);
     
     try {
-      const res = await createCourtAction(formData);
+      const res = isEditing ? await updateCourtAction(formData) : await createCourtAction(formData);
       if (res.success) {
         onClose();
         (e.target as HTMLFormElement).reset();
+        router.refresh();
       } else {
         setError(res.error || "Erro ao salvar quadra.");
       }
@@ -73,9 +78,10 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title="Nova Quadra" 
+      title={isEditing ? "Editar Quadra" : "Nova Quadra"}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {initial && <input type="hidden" name="id" value={initial.id} />}
         {error && (
           <div className="p-3 bg-danger-light text-danger text-sm font-bold rounded-lg border border-danger/20">
             {error}
@@ -86,7 +92,8 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
           <Input 
             label="Nome da Quadra" 
             name="name" 
-            placeholder="Ex: QUADRA 01" 
+            placeholder="Ex: QUADRA 01"
+            defaultValue={initial?.name}
             required 
             autoFocus
           />
@@ -98,7 +105,7 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
             value={selectedModalityId}
             onChange={(event) => setSelectedModalityId(event.target.value)}
             options={[
-              { label: availableModalities.length ? "Selecione..." : "Cadastre uma modalidade primeiro", value: "" },
+            { label: availableModalities.length ? "Selecione..." : "Cadastre uma modalidade primeiro", value: "" },
               ...availableModalities.map(m => ({ label: m.name, value: m.id }))
             ]}
           />
@@ -130,8 +137,11 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
         <Textarea 
           label="Descrição" 
           name="description" 
-          placeholder="Detalhes da quadra (cobertura, tipo de piso, etc.)" 
+          placeholder="Detalhes da quadra (cobertura, tipo de piso, etc.)"
+          defaultValue={initial?.description || ""}
         />
+
+        <Input label="Tipo de piso" name="floorType" placeholder="Ex.: Sintético" defaultValue={initial?.floorType || "Sintético"} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Input 
@@ -140,20 +150,21 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
             type="number" 
             step="0.01" 
             placeholder="0.00"
+            defaultValue={initial?.pricePerHour}
             required
           />
           <Input 
             label="Duração Padrão (min)" 
             name="defaultDurationMinutes" 
             type="number" 
-            defaultValue="60"
+            defaultValue={String(initial?.defaultDurationMinutes || 60)}
             required
           />
           <Input 
             label="Capacidade" 
             name="capacity" 
             type="number" 
-            defaultValue="10"
+            defaultValue={String(initial?.capacity || 10)}
           />
         </div>
 
@@ -162,25 +173,25 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
             label="Horário Inicial" 
             name="startTime" 
             type="time" 
-            defaultValue="08:00"
+            defaultValue={initial?.startTime || "08:00"}
             required
           />
           <Input 
             label="Horário Final" 
             name="endTime" 
             type="time" 
-            defaultValue="23:00"
+            defaultValue={initial?.endTime || "23:00"}
             required
           />
         </div>
 
         <div className="flex items-center gap-6 p-4 bg-background rounded-xl">
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" name="isCovered" className="w-4 h-4 accent-primary-orange" />
+            <input type="checkbox" name="isCovered" defaultChecked={initial?.isCovered} className="w-4 h-4 accent-primary-orange" />
             <span className="text-sm font-bold text-dark">Quadra Coberta</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" name="hasLighting" defaultChecked className="w-4 h-4 accent-primary-orange" />
+            <input type="checkbox" name="hasLighting" defaultChecked={initial?.hasLighting ?? true} className="w-4 h-4 accent-primary-orange" />
             <span className="text-sm font-bold text-dark">Possui Iluminação</span>
           </label>
         </div>
@@ -190,7 +201,7 @@ export function CourtFormModal({ isOpen, onClose, modalities }: CourtFormModalPr
             Cancelar
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting || availableModalities.length === 0}>
-            {isSubmitting ? "Salvando..." : "Salvar Quadra"}
+            {isSubmitting ? "Salvando..." : isEditing ? "Salvar Alterações" : "Salvar Quadra"}
           </Button>
         </div>
       </form>

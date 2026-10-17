@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { sanitizePhone } from "@/lib/utils";
+import { phoneLookupVariants, sanitizePhone } from "@/lib/utils";
 import { BookingStatus, CustomerStatus, CourtStatus, BookingOrigin, PaymentStatus, PaymentMethod, PaymentTransactionStatus, Role, Prisma } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -57,6 +57,13 @@ export async function createCustomerAction(formData: FormData) {
   }
 
   const sanitizedPhone = phone ? sanitizePhone(phone) : null;
+  if (phone) {
+    const duplicatePhone = await prisma.customer.findFirst({
+      where: { companyId: company.id, phone: { in: phoneLookupVariants(phone) } },
+      select: { name: true },
+    });
+    if (duplicatePhone) return { success: false, error: `Este telefone já pertence ao cadastro de ${duplicatePhone.name}. Use o cadastro existente.` };
+  }
 
   try {
     await prisma.customer.create({
@@ -109,6 +116,14 @@ export async function updateCustomerAction(formData: FormData) {
     if (duplicate) return { success: false, error: "E-mail já cadastrado para outro cliente." };
   }
 
+  if (phone) {
+    const duplicatePhone = await prisma.customer.findFirst({
+      where: { companyId: company.id, id: { not: id }, phone: { in: phoneLookupVariants(phone) } },
+      select: { name: true },
+    });
+    if (duplicatePhone) return { success: false, error: `Este telefone já pertence ao cadastro de ${duplicatePhone.name}.` };
+  }
+
   try {
     await prisma.customer.update({
       where: { id, companyId: company.id },
@@ -127,6 +142,60 @@ export async function updateCustomerAction(formData: FormData) {
     return { success: true, message: "Cliente atualizado com sucesso!" };
   } catch (e: any) {
     return { success: false, error: e.message || "Erro ao atualizar." };
+  }
+}
+
+export async function mergeCustomerRecordsAction(keepId: string, mergeId: string) {
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE], "canManageBookings");
+  if (!keepId || !mergeId || keepId === mergeId) return { success: false, error: "Selecione dois cadastros diferentes." };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const [keep, duplicate] = await Promise.all([
+        tx.customer.findFirst({ where: { id: keepId, companyId: company.id } }),
+        tx.customer.findFirst({ where: { id: mergeId, companyId: company.id } }),
+      ]);
+      if (!keep || !duplicate) throw new Error("Não foi possível localizar os dois clientes.");
+      const normalizeName = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+      if (normalizeName(keep.name) !== normalizeName(duplicate.name)) {
+        throw new Error("Só é possível mesclar cadastros com o mesmo nome. Confira antes para não unir pessoas diferentes.");
+      }
+
+      await tx.booking.updateMany({ where: { customerId: duplicate.id, companyId: company.id }, data: { customerId: keep.id } });
+      await tx.payment.updateMany({ where: { customerId: duplicate.id, companyId: company.id }, data: { customerId: keep.id } });
+      await tx.notification.updateMany({ where: { customerId: duplicate.id, companyId: company.id }, data: { customerId: keep.id } });
+
+      const [bookingTotals, latestBooking, firstBooking] = await Promise.all([
+        tx.booking.aggregate({ where: { customerId: keep.id, companyId: company.id, status: { not: BookingStatus.CANCELED } }, _count: { id: true }, _sum: { totalPrice: true } }),
+        tx.booking.findFirst({ where: { customerId: keep.id, companyId: company.id, status: { not: BookingStatus.CANCELED } }, orderBy: { startTime: "desc" }, select: { startTime: true } }),
+        tx.booking.findFirst({ where: { customerId: keep.id, companyId: company.id, status: { not: BookingStatus.CANCELED } }, orderBy: { startTime: "asc" }, select: { startTime: true } }),
+      ]);
+      const alternateContact = [
+        duplicate.phone && duplicate.phone !== keep.phone ? `Telefone alternativo: ${duplicate.phone}` : null,
+        duplicate.email && duplicate.email.toLowerCase() !== keep.email?.toLowerCase() ? `E-mail alternativo: ${duplicate.email}` : null,
+      ].filter(Boolean).join("; ");
+      const notes = [keep.notes, alternateContact, duplicate.notes].filter(Boolean).join("\n");
+      await tx.customer.delete({ where: { id: duplicate.id, companyId: company.id } });
+      await tx.customer.update({
+        where: { id: keep.id },
+        data: {
+          phone: keep.phone || duplicate.phone,
+          email: keep.email || duplicate.email,
+          cpf: keep.cpf || duplicate.cpf,
+          notes: notes || null,
+          isVip: keep.isVip || duplicate.isVip,
+          totalBookings: bookingTotals._count.id,
+          totalSpent: bookingTotals._sum.totalPrice || 0,
+          firstBookingAt: firstBooking?.startTime || keep.firstBookingAt || duplicate.firstBookingAt,
+          lastBookingAt: latestBooking?.startTime || keep.lastBookingAt || duplicate.lastBookingAt,
+        },
+      });
+    });
+    revalidatePath("/admin/clientes");
+    revalidatePath("/admin");
+    revalidatePath("/admin/agendamentos");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Não foi possível mesclar os clientes." };
   }
 }
 
@@ -208,7 +277,7 @@ export async function createCourtAction(formData: FormData) {
   const description = (formData.get("description") as string) || null;
   const capacity = parseInt(formData.get("capacity") as string) || 10;
   const isCovered = (formData.get("isCovered") as string) === "on";
-  const hasLighting = (formData.get("hasLighting") as string) === "on" || true;
+  const hasLighting = (formData.get("hasLighting") as string) === "on";
   const floorType = (formData.get("floorType") as string) || "Sintético";
   const defaultDurationMinutes = parseInt(formData.get("defaultDurationMinutes") as string) || 60;
 
@@ -240,6 +309,7 @@ export async function createCourtAction(formData: FormData) {
       },
     });
     revalidatePath("/admin/quadras");
+    revalidatePath(`/arena/${company.slug}`);
     return { success: true, message: "Quadra criada!" };
   } catch (e: any) {
     return { success: false, error: e.message };
@@ -257,9 +327,50 @@ export async function toggleCourtActiveAction(id: string, newActive: boolean) {
       },
     });
     revalidatePath("/admin/quadras");
+    revalidatePath(`/arena/${company.slug}`);
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
+  }
+}
+
+export async function updateCourtAction(formData: FormData) {
+  const company = await getCompanyOrThrow([Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE], "canManagePricing");
+  const id = String(formData.get("id") || "");
+  const name = String(formData.get("name") || "").trim();
+  const modalityId = String(formData.get("modalityId") || "");
+  const pricePerHour = Number(formData.get("pricePerHour"));
+  const startTime = String(formData.get("startTime") || "08:00");
+  const endTime = String(formData.get("endTime") || "23:00");
+  const duration = Number.parseInt(String(formData.get("defaultDurationMinutes") || "60"), 10);
+  const capacity = Number.parseInt(String(formData.get("capacity") || "10"), 10);
+  if (!id || !name || !modalityId || !Number.isFinite(pricePerHour) || pricePerHour < 0) {
+    return { success: false, error: "Confira o nome, a modalidade e o preço da quadra." };
+  }
+  if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime) || startTime >= endTime || duration < 15 || duration > 480) {
+    return { success: false, error: "Confira os horários e a duração padrão." };
+  }
+  const modality = await prisma.modality.findFirst({ where: { id: modalityId, companyId: company.id, isActive: true }, select: { id: true } });
+  if (!modality) return { success: false, error: "Selecione uma modalidade ativa desta empresa." };
+
+  try {
+    await prisma.court.update({
+      where: { id, companyId: company.id },
+      data: {
+        name: name.toUpperCase(), modalityId, pricePerHour, startTime, endTime,
+        description: String(formData.get("description") || "") || null,
+        capacity: Number.isFinite(capacity) && capacity > 0 ? capacity : 10,
+        isCovered: formData.get("isCovered") === "on",
+        hasLighting: formData.get("hasLighting") === "on",
+        floorType: String(formData.get("floorType") || "Sintético"),
+        defaultDurationMinutes: duration,
+      },
+    });
+    revalidatePath("/admin/quadras");
+    revalidatePath(`/arena/${company.slug}`);
+    return { success: true, message: "Quadra atualizada." };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Não foi possível atualizar a quadra." };
   }
 }
 
@@ -272,6 +383,7 @@ export async function deleteCourtAction(id: string) {
     }
     await prisma.court.delete({ where: { id, companyId: company.id } });
     revalidatePath("/admin/quadras");
+    revalidatePath(`/arena/${company.slug}`);
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };

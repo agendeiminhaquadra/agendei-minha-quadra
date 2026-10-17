@@ -14,9 +14,24 @@ export function buildWhatsAppLink(phone: string | null, message = "") {
 }
 
 export function sanitizePhone(phone: string) {
-  return phone
-    .replace(/\D/g, "")
-    .replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  const digits = normalizePhoneDigits(phone);
+  if (digits.length === 11) return digits.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+  if (digits.length === 10) return digits.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+  return digits;
+}
+
+export function normalizePhoneDigits(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return digits.startsWith("55") && (digits.length === 12 || digits.length === 13)
+    ? digits.slice(2)
+    : digits;
+}
+
+export function phoneLookupVariants(phone: string) {
+  const raw = phone.replace(/\D/g, "");
+  const national = normalizePhoneDigits(phone);
+  const countryPrefixed = national.length === 10 || national.length === 11 ? `55${national}` : "";
+  return [...new Set([sanitizePhone(phone), national, raw, countryPrefixed])].filter(Boolean);
 }
 
 export function formatCurrency(value: number) {
