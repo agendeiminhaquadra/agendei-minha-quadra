@@ -86,6 +86,12 @@ function formatarDataInput(d: Date): string {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
 }
 
+function formatarFimHorario(startTime: string, durationMinutes: number): string {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const endMinute = (hours * 60 + minutes + durationMinutes) % (24 * 60);
+  return `${String(Math.floor(endMinute / 60)).padStart(2, "0")}:${String(endMinute % 60).padStart(2, "0")}`;
+}
+
 function diaSemanaCurto(d: Date): string {
   return d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").toUpperCase();
 }
@@ -535,7 +541,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                                 : "bg-white text-dark border-transparent hover:border-primary-orange/30 shadow-sm"
                           )}
                         >
-                          {h.horario} a {`${String(Math.floor(((Number(h.horario.slice(0, 2)) * 60 + Number(h.horario.slice(3)) + duracaoMinutos) % 1440) / 60).padStart(2, "0")}:${String((Number(h.horario.slice(0, 2)) * 60 + Number(h.horario.slice(3)) + duracaoMinutos) % 60).padStart(2, "0")}`}
+                          {h.horario} a {formatarFimHorario(h.horario, duracaoMinutos)}
                           <div className="text-[9px] uppercase tracking-tighter mt-1 opacity-70">
                             {isReserved ? "Ocupado" : "Livre"}
                           </div>
@@ -645,7 +651,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Trophy size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Modalidade</p><p className="font-bold text-dark">{selectedModality?.name}</p></div></div>
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Building2 size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Quadra</p><p className="font-bold text-dark">{selectedQuadra?.name}</p></div></div>
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Calendar size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Data</p><p className="font-bold capitalize text-dark">{dataSelecionada ? formatarDataCompleta(dataSelecionada) : "\u2014"}</p></div></div>
-                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Clock size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Hor&#225;rio</p><p className="font-bold text-dark">{horarioSelecionado} a {new Date(0, 0, 0, Number(horarioSelecionado?.slice(0, 2)), Number(horarioSelecionado?.slice(3)) + duracaoMinutos).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p></div></div>
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Clock size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Hor&#225;rio</p><p className="font-bold text-dark">{horarioSelecionado} a {horarioSelecionado ? formatarFimHorario(horarioSelecionado, duracaoMinutos) : "—"}</p></div></div>
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-2"><User size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Respons&#225;vel</p><p className="font-bold text-dark">{formData.nome} &#183; {formData.telefone}</p></div></div>
                           </div>
                           <div className="mt-4 flex items-center justify-between rounded-xl bg-orange-50 px-4 py-3"><span className="text-sm font-semibold text-text-secondary">Valor previsto &#183; pagamento no local</span><span className="text-lg font-black text-primary-orange">{formatCurrency(valorTotal)}</span></div>
@@ -684,7 +690,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                           </div>
                           <div>
                             <span className="text-xs font-bold uppercase tracking-widest opacity-80 block mb-1">Horário</span>
-                            <span className="font-bold">{horarioSelecionado} a {new Date(0, 0, 0, Number(horarioSelecionado?.slice(0, 2)), Number(horarioSelecionado?.slice(3)) + duracaoMinutos).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                            <span className="font-bold">{horarioSelecionado} a {horarioSelecionado ? formatarFimHorario(horarioSelecionado, duracaoMinutos) : "—"}</span>
                           </div>
                         </div>
                       </div>
@@ -756,7 +762,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
 
                   <div className={cn("p-4 rounded-xl border border-border transition-all", horarioSelecionado ? "bg-background border-primary-orange/20" : "opacity-50")}>
                     <span className="text-[10px] font-bold uppercase text-text-secondary block mb-1">Horário</span>
-                    <span className="font-bold text-dark">{horarioSelecionado ? `${horarioSelecionado} a ${new Date(0, 0, 0, Number(horarioSelecionado.slice(0, 2)), Number(horarioSelecionado.slice(3)) + duracaoMinutos).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "A selecionar..."}</span>
+                    <span className="font-bold text-dark">{horarioSelecionado ? `${horarioSelecionado} a ${formatarFimHorario(horarioSelecionado, duracaoMinutos)}` : "A selecionar..."}</span>
                   </div>
 
                   <div className="pt-6 border-t border-border mt-6">
