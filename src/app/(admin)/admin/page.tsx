@@ -117,7 +117,7 @@ async function getDashboardData() {
       include: {
         court: { select: { name: true } },
         modality: { select: { name: true } },
-        customer: { select: { name: true } },
+        customer: { select: { name: true, phone: true } },
       },
       orderBy: { startTime: "asc" },
       take: 10,
@@ -311,6 +311,13 @@ export default async function AdminDashboard() {
                   <StatusBadge status={item.status} />
                   <BookingManagementActions
                     bookingId={item.id}
+                    customerName={item.customerNameSnapshot}
+                    customerPhone={item.customerPhoneSnapshot || item.customer?.phone || null}
+                    courtName={item.court?.name || "Quadra"}
+                    modalityName={item.modality?.name || null}
+                    startTime={item.startTime}
+                    endTime={item.endTime}
+                    totalPrice={item.totalPrice}
                     status={item.status}
                     paymentStatus={item.paymentStatus}
                     canManageBookings={data.canManageBookings}
