@@ -7,7 +7,8 @@ import {
   registerBookingPaymentAction,
   updateBookingStatusAction,
 } from "@/app/(admin)/admin/actions";
-import { BookingReceiptDialog } from "./BookingReceiptDialog";
+import { MessageCircle } from "lucide-react";
+import { formatCurrency, formatSaoPauloTime } from "@/lib/utils";
 
 type Props = {
   bookingId: string;
@@ -52,16 +53,49 @@ export function BookingManagementActions({
   const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.PIX);
   const [busy, setBusy] = useState(false);
-  const [receiptOpen, setReceiptOpen] = useState(false);
   const isPaid = paymentStatus === PaymentStatus.PAID;
   const isCancelable = status === BookingStatus.PENDING || status === BookingStatus.CONFIRMED;
+
+  function openWhatsAppConfirmation() {
+    const digits = customerPhone?.replace(/\D/g, "") || "";
+    if (!digits) {
+      window.alert("Este cliente n\u00e3o tem telefone cadastrado.");
+      return;
+    }
+
+    const phone = digits.startsWith("55") && (digits.length === 12 || digits.length === 13) ? digits : "55" + digits;
+    const date = startTime.toLocaleDateString("pt-BR", {
+      timeZone: "America/Sao_Paulo", weekday: "long", day: "2-digit", month: "long", year: "numeric",
+    });
+    const message = [
+      "\u2705 *RESERVA CONFIRMADA*",
+      "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+      "",
+      "Ol\u00e1, *" + customerName + "*!",
+      "Sua quadra est\u00e1 reservada. Confira os detalhes:",
+      "",
+      "\u{1F3DF}\uFE0F *Quadra:* " + courtName,
+      "\u26BD *Modalidade:* " + (modalityName || "Livre"),
+      "\u{1F4C5} *Data:* " + date,
+      "\u23F0 *Hor\u00e1rio:* " + formatSaoPauloTime(startTime) + " \u00e0s " + formatSaoPauloTime(endTime),
+      "\u{1F4B0} *Valor:* " + formatCurrency(totalPrice),
+      "\u{1F4B3} *Pagamento:* " + (isPaid ? "Pago" : "Pendente \u2014 pagamento no local"),
+      "\u{1F516} *Protocolo:* " + bookingId.slice(-8).toUpperCase(),
+      "",
+      "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
+      "Apresente esta confirma\u00e7\u00e3o no dia da reserva.",
+      "Agradecemos pela prefer\u00eancia. Boa partida! \u26bd",
+    ].join("\n");
+
+    window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(message), "_blank", "noopener,noreferrer");
+  }
 
   async function updateStatus(nextStatus: BookingStatus) {
     setBusy(true);
     const result = await updateBookingStatusAction(bookingId, nextStatus);
     setBusy(false);
     if (!result.success) {
-      window.alert(result.error || "N?o foi poss?vel atualizar a reserva.");
+      window.alert(result.error || "N\u00e3o foi poss\u00edvel atualizar a reserva.");
       return;
     }
     router.refresh();
@@ -105,23 +139,9 @@ export function BookingManagementActions({
       )}
       {canAccessFinance && isPaid && <span className="text-xs font-bold text-emerald-700">Pagamento recebido</span>}
       {canManageBookings && status === BookingStatus.CONFIRMED && (
-        <button onClick={() => setReceiptOpen(true)} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50">
-          Compartilhar comprovante
+        <button onClick={openWhatsAppConfirmation} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-50">
+          <MessageCircle size={14} /> Abrir confirma\u00e7\u00e3o no WhatsApp
         </button>
-      )}
-      {receiptOpen && (
-        <BookingReceiptDialog
-          bookingId={bookingId}
-          customerName={customerName}
-          customerPhone={customerPhone}
-          courtName={courtName}
-          modalityName={modalityName}
-          startTime={startTime}
-          endTime={endTime}
-          totalPrice={totalPrice}
-          isPaid={isPaid}
-          onClose={() => setReceiptOpen(false)}
-        />
       )}
     </div>
   );
