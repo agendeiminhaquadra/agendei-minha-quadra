@@ -17,6 +17,7 @@ type ReservationInput = {
   modalityId: string;
   date: string;
   startTime?: string;
+  durationMinutes?: number;
 };
 
 type PublicContext = {
@@ -172,12 +173,12 @@ async function loadPublicContext(input: ReservationInput): Promise<{ context?: P
     return { error: "A modalidade escolhida não está disponível nesta quadra." };
   }
 
-  const durationMinutes = court.defaultDurationMinutes;
+  const durationMinutes = input.durationMinutes ?? court.defaultDurationMinutes;
   const courtStart = timeToMinutes(court.startTime);
   const courtEnd = timeToMinutes(court.endTime);
   const companyStart = timeToMinutes(scheduledCompany.openingTime);
   const companyEnd = timeToMinutes(scheduledCompany.closingTime);
-  if (courtStart === null || courtEnd === null || companyStart === null || companyEnd === null || durationMinutes < 15 || durationMinutes > 480) {
+  if (courtStart === null || courtEnd === null || companyStart === null || companyEnd === null || durationMinutes < 15 || durationMinutes > 480 || durationMinutes % company.slotIntervalMinutes !== 0) {
     return { error: "O horário escolhido está fora do funcionamento da arena." };
   }
   let startDateTime: Date | undefined;

@@ -98,6 +98,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [quadraId, setQuadraId] = useState<string | null>(null);
   const [horarioSelecionado, setHorarioSelecionado] = useState<string | null>(null);
+  const [duracaoMinutos, setDuracaoMinutos] = useState(60);
   const [horarios, setHorarios] = useState<TimeSlot[]>([]);
   const [loadingHorarios, setLoadingHorarios] = useState(false);
   const [diasPage, setDiasPage] = useState(0);
@@ -130,6 +131,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
       courtId: quadraId,
       modalityId,
       date: formatarDataInput(dataSelecionada),
+      durationMinutes: duracaoMinutos,
     }).then((result) => {
       if (active) setHorarios(result.success ? result.slots : []);
     }).catch(() => {
@@ -138,13 +140,13 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
       if (active) setLoadingHorarios(false);
     });
     return () => { active = false; };
-  }, [company.id, dataSelecionada, modalityId, quadraId]);
+  }, [company.id, dataSelecionada, modalityId, quadraId, duracaoMinutos]);
   const precoHoraSelecionado = selectedQuadra
     ? selectedQuadra.modalities.find((item) => item.modalityId === modalityId)?.customPrice ??
       (selectedQuadra.modalityId === modalityId ? selectedQuadra.pricePerHour : (selectedModality?.pricePerHour || selectedQuadra.pricePerHour))
     : selectedModality?.pricePerHour || 0;
   const valorTotal = selectedQuadra
-    ? Math.round((precoHoraSelecionado * selectedQuadra.defaultDurationMinutes / 60) * 100) / 100
+    ? Math.round((precoHoraSelecionado * duracaoMinutos / 60) * 100) / 100
     : precoHoraSelecionado;
 
   const handleNextStep = () => {
@@ -182,6 +184,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
         modalityId,
         date: formatarDataInput(dataSelecionada),
         startTime: horarioSelecionado,
+        durationMinutes: duracaoMinutos,
         customer: {
           name: formData.nome,
           phone: formData.telefone,
@@ -443,6 +446,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                       key={q.id}
                       onClick={() => {
                         setQuadraId(q.id);
+                        setDuracaoMinutos(q.defaultDurationMinutes);
                         setStep("horario");
                       }}
                       className={cn(
@@ -501,6 +505,14 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
 
                 <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
                   {loadingHorarios && <p className="text-sm text-text-secondary mb-4">Consultando horarios...</p>}
+                  <label className="mb-5 flex flex-wrap items-center gap-3 text-sm font-bold text-dark">
+                    Duração:
+                    <select value={duracaoMinutos} onChange={(event) => { setDuracaoMinutos(Number(event.target.value)); setHorarioSelecionado(null); }} className="rounded-xl border border-border bg-white px-3 py-2">
+                      {Array.from({ length: Math.min(8, Math.floor(480 / Math.max(company.slotIntervalMinutes, 1))) }, (_, index) => (index + 1) * Math.max(company.slotIntervalMinutes, 1)).map((minutes) => (
+                        <option key={minutes} value={minutes}>{minutes / 60} {minutes === 60 ? "hora" : "horas"}</option>
+                      ))}
+                    </select>
+                  </label>
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                     {horarios.map((h) => {
                       const isSelected = horarioSelecionado === h.horario;
@@ -523,7 +535,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                                 : "bg-white text-dark border-transparent hover:border-primary-orange/30 shadow-sm"
                           )}
                         >
-                          {h.horario}
+                          {h.horario} a {`${String(Math.floor(((Number(h.horario.slice(0, 2)) * 60 + Number(h.horario.slice(3)) + duracaoMinutos) % 1440) / 60).padStart(2, "0")}:${String((Number(h.horario.slice(0, 2)) * 60 + Number(h.horario.slice(3)) + duracaoMinutos) % 60).padStart(2, "0")}`}
                           <div className="text-[9px] uppercase tracking-tighter mt-1 opacity-70">
                             {isReserved ? "Ocupado" : "Livre"}
                           </div>
@@ -633,7 +645,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Trophy size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Modalidade</p><p className="font-bold text-dark">{selectedModality?.name}</p></div></div>
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Building2 size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Quadra</p><p className="font-bold text-dark">{selectedQuadra?.name}</p></div></div>
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Calendar size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Data</p><p className="font-bold capitalize text-dark">{dataSelecionada ? formatarDataCompleta(dataSelecionada) : "\u2014"}</p></div></div>
-                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Clock size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Hor&#225;rio</p><p className="font-bold text-dark">{horarioSelecionado}</p></div></div>
+                            <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><Clock size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Hor&#225;rio</p><p className="font-bold text-dark">{horarioSelecionado} a {new Date(0, 0, 0, Number(horarioSelecionado?.slice(0, 2)), Number(horarioSelecionado?.slice(3)) + duracaoMinutos).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p></div></div>
                             <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 sm:col-span-2"><User size={18} className="shrink-0 text-primary-orange" /><div><p className="text-[10px] font-bold uppercase text-text-secondary">Respons&#225;vel</p><p className="font-bold text-dark">{formData.nome} &#183; {formData.telefone}</p></div></div>
                           </div>
                           <div className="mt-4 flex items-center justify-between rounded-xl bg-orange-50 px-4 py-3"><span className="text-sm font-semibold text-text-secondary">Valor previsto &#183; pagamento no local</span><span className="text-lg font-black text-primary-orange">{formatCurrency(valorTotal)}</span></div>
@@ -672,7 +684,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
                           </div>
                           <div>
                             <span className="text-xs font-bold uppercase tracking-widest opacity-80 block mb-1">Horário</span>
-                            <span className="font-bold">{horarioSelecionado}</span>
+                            <span className="font-bold">{horarioSelecionado} a {new Date(0, 0, 0, Number(horarioSelecionado?.slice(0, 2)), Number(horarioSelecionado?.slice(3)) + duracaoMinutos).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
                           </div>
                         </div>
                       </div>
@@ -744,7 +756,7 @@ export function ArenaBookingClient({ company, modalities, courts }: ArenaBooking
 
                   <div className={cn("p-4 rounded-xl border border-border transition-all", horarioSelecionado ? "bg-background border-primary-orange/20" : "opacity-50")}>
                     <span className="text-[10px] font-bold uppercase text-text-secondary block mb-1">Horário</span>
-                    <span className="font-bold text-dark">{horarioSelecionado || "A selecionar..."}</span>
+                    <span className="font-bold text-dark">{horarioSelecionado ? `${horarioSelecionado} a ${new Date(0, 0, 0, Number(horarioSelecionado.slice(0, 2)), Number(horarioSelecionado.slice(3)) + duracaoMinutos).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "A selecionar..."}</span>
                   </div>
 
                   <div className="pt-6 border-t border-border mt-6">

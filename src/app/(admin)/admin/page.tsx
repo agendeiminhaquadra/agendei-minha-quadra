@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { BookingStatus, Role } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getSaoPauloDateKey, getSaoPauloDayBounds } from "@/lib/utils";
 
 export const revalidate = 30;
 
@@ -24,7 +25,7 @@ function formatCurrency(val: number) {
 }
 
 function formatTime(d: Date) {
-  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
 }
 
 async function getDashboardData() {
@@ -45,15 +46,12 @@ async function getDashboardData() {
     where: { id: session.companyId },
   });
 
-  const inicioHoje = new Date();
-  inicioHoje.setHours(0, 0, 0, 0);
-  const fimHoje = new Date();
-  fimHoje.setHours(23, 59, 59, 999);
-
-  const inicioOntem = new Date(inicioHoje);
-  inicioOntem.setDate(inicioOntem.getDate() - 1);
-  const fimOntem = new Date(fimHoje);
-  fimOntem.setDate(fimOntem.getDate() - 1);
+  const hojeKey = getSaoPauloDateKey();
+  const ontemDate = new Date(`${hojeKey}T00:00:00Z`);
+  ontemDate.setUTCDate(ontemDate.getUTCDate() - 1);
+  const ontemKey = ontemDate.toISOString().slice(0, 10);
+  const { start: inicioHoje, end: fimHoje } = getSaoPauloDayBounds(hojeKey);
+  const { start: inicioOntem, end: fimOntem } = getSaoPauloDayBounds(ontemKey);
 
   const [
     reservasHoje,
@@ -168,14 +166,15 @@ async function getDashboardData() {
     }),
   );
 
-  const inicioMes = new Date();
-  inicioMes.setDate(1);
-  inicioMes.setHours(0, 0, 0, 0);
+  const inicioMes = getSaoPauloDayBounds(`${hojeKey.slice(0, 7)}-01`).start;
+  const proximoMesDate = new Date(`${hojeKey.slice(0, 7)}-01T00:00:00Z`);
+  proximoMesDate.setUTCMonth(proximoMesDate.getUTCMonth() + 1);
+  const inicioProximoMes = getSaoPauloDayBounds(proximoMesDate.toISOString().slice(0, 10)).start;
   const receitaMes = await prisma.booking.aggregate({
     _sum: { totalPrice: true },
     where: {
       companyId: company.id,
-      startTime: { gte: inicioMes },
+      startTime: { gte: inicioMes, lt: inicioProximoMes },
       status: { notIn: [BookingStatus.CANCELED] },
     },
   });
@@ -224,7 +223,7 @@ export default async function AdminDashboard() {
           positive={data.deltaReservas >= 0}
         />
         {data.canAccessFinance && <StatCard
-          title="Receita do Dia"
+          title="Valor reservado hoje"
           value={formatCurrency(data.receitaHojeValor || 0)}
           icon={<DollarSign className="text-primary-orange" size={24} />}
           change={
@@ -361,7 +360,7 @@ export default async function AdminDashboard() {
                 <span className="text-3xl font-black">{formatCurrency(data.receitaMes || 0)}</span>
               </div>
               <p className="text-sm text-white/80 leading-relaxed">
-                Total de receita gerada pelo complexo esportivo no mês corrente.
+                Valor das reservas registradas neste mês, incluindo solicitações aguardando confirmação.
               </p>
               <button className="w-full py-2.5 bg-white text-primary-orange rounded-xl font-bold text-sm hover:bg-orange-50 transition-colors">
                 Ver Relatório Completo

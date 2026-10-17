@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, User, Clock, MapPin, Plus, Calendar as CalendarIcon, Filter } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatSaoPauloTime } from "@/lib/utils";
 import { Booking, Court, Customer, Modality, BookingStatus } from "@prisma/client";
 import { BookingFormModal } from "./forms/BookingFormModal";
+import { updateBookingStatusAction } from "@/app/(admin)/admin/actions";
 
 interface BookingWithDetails extends Booking {
   court: Court;
@@ -33,6 +35,7 @@ export function AgendamentosClient({
   selectedDate: initialDate
 }: AgendamentosClientProps) {
   const [date, setDate] = useState(initialDate);
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<{ courtId: string; startTime: string } | null>(null);
 
@@ -55,13 +58,17 @@ export function AgendamentosClient({
   const handlePrevDay = () => {
     const d = new Date(date + 'T00:00:00');
     d.setDate(d.getDate() - 1);
-    setDate(d.toISOString().split('T')[0]);
+    const nextDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setDate(nextDate);
+    router.push(`/admin/agendamentos?date=${nextDate}`);
   };
 
   const handleNextDay = () => {
     const d = new Date(date + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    setDate(d.toISOString().split('T')[0]);
+    const nextDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    setDate(nextDate);
+    router.push(`/admin/agendamentos?date=${nextDate}`);
   };
 
   const handleSlotClick = (courtId: string, time: string) => {
@@ -71,7 +78,7 @@ export function AgendamentosClient({
 
   const getBookingForSlot = (courtId: string, time: string) => {
     return initialBookings.find(b => {
-      const bTime = b.startTime.toISOString().split('T')[1].substring(0, 5);
+      const bTime = formatSaoPauloTime(b.startTime);
       return b.courtId === courtId && bTime === time;
     });
   };
@@ -196,8 +203,10 @@ export function AgendamentosClient({
                               <span className="bg-white/50 px-1.5 py-0.5 rounded-lg border border-border/50">
                                 {booking.modality?.name || 'Livre'}
                               </span>
+                              <span>{formatSaoPauloTime(booking.startTime)}–{formatSaoPauloTime(booking.endTime)}</span>
                               <span>{formatCurrency(booking.totalPrice)}</span>
                             </div>
+                            {isPending && <button type="button" className="mt-2 rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700" onClick={async (event) => { event.stopPropagation(); const result = await updateBookingStatusAction(booking.id, BookingStatus.CONFIRMED); if (result.success) router.refresh(); else window.alert(result.error || "Não foi possível confirmar a reserva."); }}>Confirmar reserva</button>}
                           </div>
                         </td>
                       );

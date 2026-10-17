@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AgendamentosClient } from "@/components/admin/AgendamentosClient";
 import { requirePermission } from "@/lib/permissions";
+import { getSaoPauloDateKey, getSaoPauloDayBounds } from "@/lib/utils";
 
 export const revalidate = 0;
 
@@ -19,9 +20,8 @@ export default async function AgendamentosPage({ searchParams }: PageProps) {
     redirect("/login?next=/admin/agendamentos");
   }
 
-  const selectedDate = searchParams.date || new Date().toISOString().split("T")[0];
-  const startOfDay = new Date(selectedDate + "T00:00:00");
-  const endOfDay = new Date(selectedDate + "T23:59:59");
+  const selectedDate = searchParams.date || getSaoPauloDateKey();
+  const { start: startOfDay, end: endOfDay } = getSaoPauloDayBounds(selectedDate);
 
   const [bookings, courts, customers, modalities] = await Promise.all([
     prisma.booking.findMany({
