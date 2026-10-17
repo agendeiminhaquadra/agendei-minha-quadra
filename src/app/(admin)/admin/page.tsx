@@ -274,67 +274,52 @@ export default async function AdminDashboard() {
             </Link>
           </div>
 
-          <div className="card-modern overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-background-light/50 border-b border-border">
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Data / horário</th>
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Quadra</th>
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Modalidade</th>
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Status / ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {data.proximasReservas.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-text-secondary font-medium">
-                        Nenhuma reserva futura no momento.
-                      </td>
-                    </tr>
-                  )}
-                  {data.proximasReservas.map((item) => (
-                    <tr key={item.id} className={cn("hover:bg-background-light/30 transition-colors group", item.status === BookingStatus.PENDING && "animate-pulse bg-amber-50/60 motion-reduce:animate-none")}>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-dark">
-                          {formatBookingDate(item.startTime)} · {formatTime(item.startTime)} - {formatTime(item.endTime)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium text-text-secondary">
-                        {item.court?.name}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-orange-50 text-primary-orange border border-orange-100">
-                          {item.modality?.name || "—"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-background-light flex items-center justify-center text-xs font-bold text-primary-orange">
-                            {(item.customer?.name || item.customerNameSnapshot).charAt(0)}
-                          </div>
-                          <span className="text-sm font-bold text-dark">
-                            {item.customer?.name || item.customerNameSnapshot}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={item.status} />
-                        <BookingManagementActions
-                          bookingId={item.id}
-                          status={item.status}
-                          paymentStatus={item.paymentStatus}
-                          canManageBookings={data.canManageBookings}
-                          canCancelBookings={data.canCancelBookings}
-                          canAccessFinance={data.canAccessFinance}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="card-modern overflow-hidden divide-y divide-border">
+            {data.proximasReservas.length === 0 && (
+              <p className="px-6 py-12 text-center text-text-secondary font-medium">Nenhuma reserva futura no momento.</p>
+            )}
+            {data.proximasReservas.map((item) => (
+              <article key={item.id} className={cn(
+                "grid gap-4 p-5 transition-colors sm:p-6 xl:grid-cols-[minmax(0,1fr)_minmax(240px,290px)]",
+                item.status === BookingStatus.PENDING && "animate-pulse bg-amber-50/50 motion-reduce:animate-none",
+              )}>
+                <div className="grid min-w-0 grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 sm:gap-x-5">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-text-secondary">Data e horário</p>
+                    <p className="mt-1 text-sm font-bold text-dark">{formatBookingDate(item.startTime)}</p>
+                    <p className="text-xs font-semibold text-text-secondary">{formatTime(item.startTime)} - {formatTime(item.endTime)}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-text-secondary">Quadra</p>
+                    <p className="mt-1 break-words text-sm font-bold text-dark">{item.court?.name}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-text-secondary">Modalidade</p>
+                    <p className="mt-1 break-words text-sm font-semibold text-primary-orange">{item.modality?.name || "—"}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-text-secondary">Cliente</p>
+                    <div className="mt-1 flex min-w-0 items-center gap-2">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-50 text-xs font-bold text-primary-orange">
+                        {(item.customer?.name || item.customerNameSnapshot).charAt(0)}
+                      </span>
+                      <span className="truncate text-sm font-bold text-dark">{item.customer?.name || item.customerNameSnapshot}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="min-w-0 border-t border-border pt-3 xl:border-l xl:border-t-0 xl:pl-5 xl:pt-0">
+                  <StatusBadge status={item.status} />
+                  <BookingManagementActions
+                    bookingId={item.id}
+                    status={item.status}
+                    paymentStatus={item.paymentStatus}
+                    canManageBookings={data.canManageBookings}
+                    canCancelBookings={data.canCancelBookings}
+                    canAccessFinance={data.canAccessFinance}
+                  />
+                </div>
+              </article>
+            ))}
           </div>
         </div>
 
