@@ -50,7 +50,7 @@ const menuItems = [
   { icon: Settings, label: "Configurações", href: "/admin/configuracoes" },
 ];
 
-export function Sidebar({ company, user }: { company: CompanyData; user: UserData }) {
+export function Sidebar({ company, user, pendingBookingCount = 0 }: { company: CompanyData; user: UserData; pendingBookingCount?: number }) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -135,7 +135,11 @@ export function Sidebar({ company, user }: { company: CompanyData; user: UserDat
                     />
                     <span>{item.label}</span>
                   </div>
-                  {isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary-orange" />}
+                  {item.href === "/admin/agendamentos" && pendingBookingCount > 0 ? (
+                    <span className="relative flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-white animate-pulse" aria-label={`${pendingBookingCount} reservas pendentes`}>
+                      {pendingBookingCount}
+                    </span>
+                  ) : isActive && <div className="w-1.5 h-1.5 rounded-full bg-primary-orange" />}
                 </Link>
               );
             })}

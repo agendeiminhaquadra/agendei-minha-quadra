@@ -184,7 +184,8 @@ export function AgendamentosClient({
                             "rounded-2xl p-3 border-l-4 shadow-sm transition-all hover:shadow-md cursor-pointer",
                             isConfirmed ? "bg-green-50 border-status-confirmed" :
                             isPending ? "bg-yellow-50 border-status-pending" :
-                            "bg-gray-50 border-gray-300"
+                            "bg-gray-50 border-gray-300",
+                            isPending && "animate-pulse motion-reduce:animate-none"
                           )}>
                             <div className="flex justify-between items-start mb-1">
                               <p className="text-xs font-black text-dark truncate">

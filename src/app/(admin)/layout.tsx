@@ -32,6 +32,9 @@ async function getLayoutData() {
   if (!userLogged) {
     redirect("/login?next=/admin");
   }
+  const pendingBookingCount = await prisma.booking.count({
+    where: { companyId: session.companyId, status: "PENDING" },
+  });
   if (userLogged.role === Role.SUPERADMIN) {
     redirect("/superadmin");
   }
@@ -59,6 +62,7 @@ async function getLayoutData() {
 
   return {
     isSuspended: company.isSuspended,
+    pendingBookingCount,
     company: {
       id: company.id,
       name: company.name,
@@ -92,7 +96,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { company, user, subscription, isSuspended } = await getLayoutData();
+  const { company, user, subscription, isSuspended, pendingBookingCount } = await getLayoutData();
 
   if (isSuspended) {
     return (
@@ -137,7 +141,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar company={company} user={user} />
+      <Sidebar company={company} user={user} pendingBookingCount={pendingBookingCount} />
 
       <div className="flex-1 flex flex-col lg:pl-[280px] transition-all duration-300">
         <Header company={company} user={user} />

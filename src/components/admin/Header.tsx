@@ -41,7 +41,9 @@ export function Header({ company, user }: { company: CompanyData; user: UserData
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const pageTitle = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : "Dashboard";
+  const pageTitle = pathname === "/admin"
+    ? user.name
+    : breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].label : "Dashboard";
 
   const handleLogout = () => {
     setOpenMenu(false);

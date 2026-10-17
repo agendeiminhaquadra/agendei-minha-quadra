@@ -17,8 +17,10 @@ import { BookingStatus, Role } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSaoPauloDateKey, getSaoPauloDayBounds } from "@/lib/utils";
+import Link from "next/link";
+import { updateBookingStatusAction } from "./actions";
 
-export const revalidate = 30;
+export const revalidate = 0;
 
 function formatCurrency(val: number) {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -26,6 +28,10 @@ function formatCurrency(val: number) {
 
 function formatTime(d: Date) {
   return d.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatBookingDate(d: Date) {
+  return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
 }
 
 async function getDashboardData() {
@@ -62,7 +68,7 @@ async function getDashboardData() {
     reservasOntem,
     receitaOntem,
     clientesNovosHoje,
-    agendaHojeCompleta,
+    proximasReservas,
     modalidadesAggregadas,
   ] = await Promise.all([
     prisma.booking.count({
@@ -104,7 +110,8 @@ async function getDashboardData() {
     canManageBookings ? prisma.booking.findMany({
       where: {
         companyId: company.id,
-        startTime: { gte: inicioHoje, lte: fimHoje },
+        startTime: { gte: new Date() },
+        status: { not: BookingStatus.CANCELED },
       },
       include: {
         court: { select: { name: true } },
@@ -192,7 +199,7 @@ async function getDashboardData() {
     deltaReservas,
     deltaReceita: canAccessFinance ? deltaReceita : null,
     pctReservas,
-    agendaHojeCompleta,
+    proximasReservas,
     modalidadesOcupacao,
     receitaMes: canAccessFinance ? receitaMes._sum.totalPrice || 0 : null,
     canAccessFinance,
@@ -258,11 +265,11 @@ export default async function AdminDashboard() {
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold text-dark flex items-center gap-2">
               <Clock size={20} className="text-primary-orange" />
-              Agenda de Hoje
+              Próximas reservas
             </h3>
-            <button className="text-primary-orange text-sm font-bold hover:underline flex items-center gap-1">
+            <Link href="/admin/agendamentos" className="text-primary-orange text-sm font-bold hover:underline flex items-center gap-1">
               Ver agenda completa <ChevronRight size={16} />
-            </button>
+            </Link>
           </div>
 
           <div className="card-modern overflow-hidden">
@@ -270,26 +277,26 @@ export default async function AdminDashboard() {
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-background-light/50 border-b border-border">
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Horário</th>
+                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Data / horário</th>
                     <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Quadra</th>
                     <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Modalidade</th>
                     <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-xs font-black text-text-secondary uppercase tracking-wider">Status / ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {data.agendaHojeCompleta.length === 0 && (
+                  {data.proximasReservas.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-6 py-12 text-center text-text-secondary font-medium">
-                        Nenhum agendamento para hoje ainda.
+                        Nenhuma reserva futura no momento.
                       </td>
                     </tr>
                   )}
-                  {data.agendaHojeCompleta.map((item) => (
-                    <tr key={item.id} className="hover:bg-background-light/30 transition-colors group">
+                  {data.proximasReservas.map((item) => (
+                    <tr key={item.id} className={cn("hover:bg-background-light/30 transition-colors group", item.status === BookingStatus.PENDING && "animate-pulse bg-amber-50/60 motion-reduce:animate-none")}>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-dark">
-                          {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                          {formatBookingDate(item.startTime)} · {formatTime(item.startTime)} - {formatTime(item.endTime)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-text-secondary">
@@ -312,6 +319,14 @@ export default async function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <StatusBadge status={item.status} />
+                        {item.status === BookingStatus.PENDING && data.canManageBookings && (
+                          <form action={async () => {
+                            "use server";
+                            await updateBookingStatusAction(item.id, BookingStatus.CONFIRMED);
+                          }} className="mt-2">
+                            <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">Confirmar reserva</button>
+                          </form>
+                        )}
                       </td>
                     </tr>
                   ))}
