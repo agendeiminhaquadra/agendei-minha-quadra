@@ -18,7 +18,7 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSaoPauloDateKey, getSaoPauloDayBounds } from "@/lib/utils";
 import Link from "next/link";
-import { updateBookingStatusAction } from "./actions";
+import { BookingManagementActions } from "@/components/admin/BookingManagementActions";
 
 export const revalidate = 0;
 
@@ -42,11 +42,12 @@ async function getDashboardData() {
 
   const userLogged = await prisma.user.findFirst({
     where: { id: session.userId, companyId: session.companyId, isActive: true },
-    select: { name: true, role: true, canManageBookings: true, canAccessFinance: true },
+    select: { name: true, role: true, canManageBookings: true, canCancelBookings: true, canAccessFinance: true },
   });
   if (!userLogged) redirect("/login");
   const canAccessFinance = userLogged.role === Role.ADMIN || userLogged.canAccessFinance;
   const canManageBookings = userLogged.role === Role.ADMIN || userLogged.canManageBookings;
+  const canCancelBookings = userLogged.role === Role.ADMIN || userLogged.canCancelBookings;
 
   const company = await prisma.company.findUniqueOrThrow({
     where: { id: session.companyId },
@@ -78,12 +79,12 @@ async function getDashboardData() {
         status: { notIn: [BookingStatus.CANCELED] },
       },
     }),
-    prisma.booking.aggregate({
-      _sum: { totalPrice: true },
+    prisma.payment.aggregate({
+      _sum: { amount: true },
       where: {
         companyId: company.id,
-        startTime: { gte: inicioHoje, lte: fimHoje },
-        status: { notIn: [BookingStatus.CANCELED] },
+        paidAt: { gte: inicioHoje, lte: fimHoje },
+        status: "PAID",
       },
     }),
     prisma.court.count({ where: { companyId: company.id } }),
@@ -96,12 +97,12 @@ async function getDashboardData() {
         status: { notIn: [BookingStatus.CANCELED] },
       },
     }),
-    prisma.booking.aggregate({
-      _sum: { totalPrice: true },
+    prisma.payment.aggregate({
+      _sum: { amount: true },
       where: {
         companyId: company.id,
-        startTime: { gte: inicioOntem, lte: fimOntem },
-        status: { notIn: [BookingStatus.CANCELED] },
+        paidAt: { gte: inicioOntem, lte: fimOntem },
+        status: "PAID",
       },
     }),
     prisma.customer.count({
@@ -134,8 +135,8 @@ async function getDashboardData() {
     }),
   ]);
 
-  const receitaHojeValor = receitaHoje._sum.totalPrice || 0;
-  const receitaOntemValor = receitaOntem._sum.totalPrice || 0;
+  const receitaHojeValor = receitaHoje._sum.amount || 0;
+  const receitaOntemValor = receitaOntem._sum.amount || 0;
 
   const deltaReservas = reservasHoje - reservasOntem;
   const deltaReceita = receitaHojeValor - receitaOntemValor;
@@ -177,12 +178,12 @@ async function getDashboardData() {
   const proximoMesDate = new Date(`${hojeKey.slice(0, 7)}-01T00:00:00Z`);
   proximoMesDate.setUTCMonth(proximoMesDate.getUTCMonth() + 1);
   const inicioProximoMes = getSaoPauloDayBounds(proximoMesDate.toISOString().slice(0, 10)).start;
-  const receitaMes = await prisma.booking.aggregate({
-    _sum: { totalPrice: true },
+  const receitaMes = await prisma.payment.aggregate({
+    _sum: { amount: true },
     where: {
       companyId: company.id,
-      startTime: { gte: inicioMes, lt: inicioProximoMes },
-      status: { notIn: [BookingStatus.CANCELED] },
+      paidAt: { gte: inicioMes, lt: inicioProximoMes },
+      status: "PAID",
     },
   });
 
@@ -201,9 +202,10 @@ async function getDashboardData() {
     pctReservas,
     proximasReservas,
     modalidadesOcupacao,
-    receitaMes: canAccessFinance ? receitaMes._sum.totalPrice || 0 : null,
+    receitaMes: canAccessFinance ? receitaMes._sum.amount || 0 : null,
     canAccessFinance,
     canManageBookings,
+    canCancelBookings,
   };
 }
 
@@ -230,7 +232,7 @@ export default async function AdminDashboard() {
           positive={data.deltaReservas >= 0}
         />
         {data.canAccessFinance && <StatCard
-          title="Valor reservado hoje"
+          title="Recebido hoje"
           value={formatCurrency(data.receitaHojeValor || 0)}
           icon={<DollarSign className="text-primary-orange" size={24} />}
           change={
@@ -319,14 +321,14 @@ export default async function AdminDashboard() {
                       </td>
                       <td className="px-6 py-4">
                         <StatusBadge status={item.status} />
-                        {item.status === BookingStatus.PENDING && data.canManageBookings && (
-                          <form action={async () => {
-                            "use server";
-                            await updateBookingStatusAction(item.id, BookingStatus.CONFIRMED);
-                          }} className="mt-2">
-                            <button className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700">Confirmar reserva</button>
-                          </form>
-                        )}
+                        <BookingManagementActions
+                          bookingId={item.id}
+                          status={item.status}
+                          paymentStatus={item.paymentStatus}
+                          canManageBookings={data.canManageBookings}
+                          canCancelBookings={data.canCancelBookings}
+                          canAccessFinance={data.canAccessFinance}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -375,7 +377,7 @@ export default async function AdminDashboard() {
                 <span className="text-3xl font-black">{formatCurrency(data.receitaMes || 0)}</span>
               </div>
               <p className="text-sm text-white/80 leading-relaxed">
-                Valor das reservas registradas neste mês, incluindo solicitações aguardando confirmação.
+                Pagamentos recebidos e registrados neste mês.
               </p>
               <button className="w-full py-2.5 bg-white text-primary-orange rounded-xl font-bold text-sm hover:bg-orange-50 transition-colors">
                 Ver Relatório Completo

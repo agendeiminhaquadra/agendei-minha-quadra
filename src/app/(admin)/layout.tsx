@@ -6,6 +6,7 @@ import { getSession, calcSubscriptionInfo } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, Lock } from "lucide-react";
+import { LiveBookingRefresh } from "@/components/admin/LiveBookingRefresh";
 
 async function getLayoutData() {
   const session = await getSession();
@@ -141,6 +142,7 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen bg-background flex">
+      <LiveBookingRefresh />
       <Sidebar company={company} user={user} pendingBookingCount={pendingBookingCount} />
 
       <div className="flex-1 flex flex-col lg:pl-[280px] transition-all duration-300">

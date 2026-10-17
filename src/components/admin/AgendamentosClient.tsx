@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, User, Clock, MapPin, Plus, Calendar as Calen
 import { cn, formatCurrency, formatSaoPauloTime } from "@/lib/utils";
 import { Booking, Court, Customer, Modality, BookingStatus } from "@prisma/client";
 import { BookingFormModal } from "./forms/BookingFormModal";
-import { updateBookingStatusAction } from "@/app/(admin)/admin/actions";
+import { BookingManagementActions } from "./BookingManagementActions";
 
 interface BookingWithDetails extends Booking {
   court: Court;
@@ -20,6 +20,8 @@ interface AgendamentosClientProps {
   customers: Customer[];
   modalities: Modality[];
   selectedDate: string;
+  canCancelBookings: boolean;
+  canAccessFinance: boolean;
 }
 
 const timeSlots = Array.from({ length: 15 }, (_, i) => {
@@ -32,7 +34,9 @@ export function AgendamentosClient({
   courts, 
   customers, 
   modalities,
-  selectedDate: initialDate
+  selectedDate: initialDate,
+  canCancelBookings,
+  canAccessFinance,
 }: AgendamentosClientProps) {
   const [date, setDate] = useState(initialDate);
   const router = useRouter();
@@ -207,7 +211,14 @@ export function AgendamentosClient({
                               <span>{formatSaoPauloTime(booking.startTime)}–{formatSaoPauloTime(booking.endTime)}</span>
                               <span>{formatCurrency(booking.totalPrice)}</span>
                             </div>
-                            {isPending && <button type="button" className="mt-2 rounded-lg bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-emerald-700" onClick={async (event) => { event.stopPropagation(); const result = await updateBookingStatusAction(booking.id, BookingStatus.CONFIRMED); if (result.success) router.refresh(); else window.alert(result.error || "Não foi possível confirmar a reserva."); }}>Confirmar reserva</button>}
+                            <BookingManagementActions
+                              bookingId={booking.id}
+                              status={booking.status}
+                              paymentStatus={booking.paymentStatus}
+                              canManageBookings
+                              canCancelBookings={canCancelBookings}
+                              canAccessFinance={canAccessFinance}
+                            />
                           </div>
                         </td>
                       );

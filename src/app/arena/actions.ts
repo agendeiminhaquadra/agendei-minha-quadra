@@ -335,6 +335,7 @@ export async function createPublicBookingAction(data: ReservationInput & {
 
     revalidatePath(`/arena/[slug]`, "page");
     revalidatePath(`/admin/agendamentos`);
+    revalidatePath(`/admin`);
     return { success: true, message: "Reserva realizada com sucesso!", bookingId: booking.id };
   } catch (error) {
     if (error instanceof Error && error.message === "SLOT_TAKEN") {

@@ -437,7 +437,6 @@ export async function updateBookingStatusAction(id: string, newStatus: BookingSt
     if (newStatus === BookingStatus.CHECKED_IN) data.checkInAt = new Date();
     if (newStatus === BookingStatus.COMPLETED) {
       data.checkOutAt = new Date();
-      data.paymentStatus = PaymentStatus.PAID;
     }
     await prisma.booking.update({ where: { id, companyId: company.id }, data });
     revalidatePath("/admin/agendamentos");
@@ -445,6 +444,56 @@ export async function updateBookingStatusAction(id: string, newStatus: BookingSt
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
+  }
+}
+
+export async function registerBookingPaymentAction(bookingId: string, paymentMethod: PaymentMethod) {
+  const company = await getCompanyOrThrow(
+    [Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE],
+    "canAccessFinance",
+  );
+  if (!Object.values(PaymentMethod).includes(paymentMethod)) {
+    return { success: false, error: "Forma de pagamento inválida." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findFirst({
+        where: { id: bookingId, companyId: company.id },
+        select: { id: true, customerId: true, totalPrice: true, paidAmount: true, paymentStatus: true, status: true },
+      });
+      if (!booking) throw new Error("Reserva não encontrada.");
+      if (booking.status === BookingStatus.CANCELED) throw new Error("Não é possível registrar pagamento de uma reserva cancelada.");
+      if (booking.paymentStatus === PaymentStatus.PAID) return;
+
+      const amount = Math.max(0, Math.round((booking.totalPrice - booking.paidAmount) * 100) / 100);
+      if (amount <= 0) throw new Error("Esta reserva não tem valor pendente.");
+
+      await tx.payment.create({
+        data: {
+          companyId: company.id,
+          bookingId: booking.id,
+          customerId: booking.customerId,
+          amount,
+          paymentMethod,
+          status: PaymentTransactionStatus.PAID,
+          paidAt: new Date(),
+        },
+      });
+      await tx.booking.update({
+        where: { id: booking.id },
+        data: { paidAmount: booking.totalPrice, paymentStatus: PaymentStatus.PAID },
+      });
+    });
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/agendamentos");
+    revalidatePath("/admin/financeiro");
+    revalidatePath("/admin/relatorios");
+    revalidatePath("/admin/quadras");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Não foi possível registrar o pagamento." };
   }
 }
 

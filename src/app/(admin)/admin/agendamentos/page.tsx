@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AgendamentosClient } from "@/components/admin/AgendamentosClient";
 import { requirePermission } from "@/lib/permissions";
 import { getSaoPauloDateKey, getSaoPauloDayBounds } from "@/lib/utils";
+import { Role } from "@prisma/client";
 
 export const revalidate = 0;
 
@@ -14,7 +15,7 @@ interface PageProps {
 }
 
 export default async function AgendamentosPage({ searchParams }: PageProps) {
-  await requirePermission("canManageBookings");
+  const permissions = await requirePermission("canManageBookings");
   const session = await getSession();
   if (!session) {
     redirect("/login?next=/admin/agendamentos");
@@ -58,6 +59,8 @@ export default async function AgendamentosPage({ searchParams }: PageProps) {
       customers={customers}
       modalities={modalities}
       selectedDate={selectedDate}
+      canCancelBookings={permissions.role === Role.ADMIN || permissions.canCancelBookings}
+      canAccessFinance={permissions.role === Role.ADMIN || permissions.canAccessFinance}
     />
   );
 }
