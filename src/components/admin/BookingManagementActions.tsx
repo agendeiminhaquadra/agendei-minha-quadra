@@ -7,7 +7,7 @@ import {
   registerBookingPaymentAction,
   updateBookingStatusAction,
 } from "@/app/(admin)/admin/actions";
-import { formatCurrency, formatSaoPauloTime } from "@/lib/utils";
+import { BookingReceiptDialog } from "./BookingReceiptDialog";
 
 type Props = {
   bookingId: string;
@@ -52,53 +52,18 @@ export function BookingManagementActions({
   const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.PIX);
   const [busy, setBusy] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   const isPaid = paymentStatus === PaymentStatus.PAID;
   const isCancelable = status === BookingStatus.PENDING || status === BookingStatus.CONFIRMED;
 
-  function openWhatsAppReceipt(windowRef: Window | null) {
-    const digits = customerPhone?.replace(/\D/g, "") || "";
-    if (!digits) {
-      windowRef?.close();
-      window.alert("Reserva confirmada, mas o cadastro do cliente não tem telefone para abrir o WhatsApp.");
-      return;
-    }
-
-    const phone = digits.startsWith("55") && (digits.length === 12 || digits.length === 13)
-      ? digits
-      : `55${digits}`;
-    const bookingDate = startTime.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-    const message = [
-      `Olá, ${customerName}! Sua reserva foi confirmada.`,
-      "",
-      "COMPROVANTE DE RESERVA",
-      `Protocolo: ${bookingId.slice(-8).toUpperCase()}`,
-      `Quadra: ${courtName}`,
-      `Modalidade: ${modalityName || "Livre"}`,
-      `Data: ${bookingDate}`,
-      `Horário: ${formatSaoPauloTime(startTime)} às ${formatSaoPauloTime(endTime)}`,
-      `Valor: ${formatCurrency(totalPrice)}`,
-      `Pagamento: ${isPaid ? "pago" : "pendente (pagamento no local)"}`,
-      "",
-      "Apresente este comprovante no dia da reserva. Até lá!",
-    ].join("\n");
-
-    if (windowRef) {
-      windowRef.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    } else {
-      window.alert("Reserva confirmada. O navegador bloqueou a abertura do WhatsApp; tente novamente ou confira o telefone do cliente.");
-    }
-  }
-
-  async function updateStatus(nextStatus: BookingStatus, whatsappWindow: Window | null = null) {
+  async function updateStatus(nextStatus: BookingStatus) {
     setBusy(true);
     const result = await updateBookingStatusAction(bookingId, nextStatus);
     setBusy(false);
     if (!result.success) {
-      whatsappWindow?.close();
-      window.alert(result.error || "Não foi possível atualizar a reserva.");
+      window.alert(result.error || "N?o foi poss?vel atualizar a reserva.");
       return;
     }
-    if (nextStatus === BookingStatus.CONFIRMED) openWhatsAppReceipt(whatsappWindow);
     router.refresh();
   }
 
@@ -116,10 +81,7 @@ export function BookingManagementActions({
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {canManageBookings && status === BookingStatus.PENDING && (
-        <button disabled={busy} onClick={() => {
-          const whatsappWindow = customerPhone ? window.open("about:blank", "_blank") : null;
-          void updateStatus(BookingStatus.CONFIRMED, whatsappWindow);
-        }} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+        <button disabled={busy} onClick={() => void updateStatus(BookingStatus.CONFIRMED)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
           Confirmar reserva
         </button>
       )}
@@ -142,6 +104,25 @@ export function BookingManagementActions({
         </>
       )}
       {canAccessFinance && isPaid && <span className="text-xs font-bold text-emerald-700">Pagamento recebido</span>}
+      {canManageBookings && status === BookingStatus.CONFIRMED && (
+        <button onClick={() => setReceiptOpen(true)} className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50">
+          Compartilhar comprovante
+        </button>
+      )}
+      {receiptOpen && (
+        <BookingReceiptDialog
+          bookingId={bookingId}
+          customerName={customerName}
+          customerPhone={customerPhone}
+          courtName={courtName}
+          modalityName={modalityName}
+          startTime={startTime}
+          endTime={endTime}
+          totalPrice={totalPrice}
+          isPaid={isPaid}
+          onClose={() => setReceiptOpen(false)}
+        />
+      )}
     </div>
   );
 }
