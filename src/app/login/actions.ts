@@ -1,7 +1,9 @@
 "use server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { createSessionToken, getRememberedSessionMaxAge, setSessionCookie, verifyPassword } from "@/lib/auth";
+import { clearEmailLoginAttempts, consumeLoginAttempt } from "@/lib/auth-rate-limit";
 
 export type LoginResult = {
   ok: boolean;
@@ -29,6 +31,18 @@ export async function loginAction(
     return { ok: false, fieldErrors };
   }
 
+  const requestHeaders = headers();
+  const clientIp = requestHeaders.get("x-real-ip")?.trim()
+    || requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
+    || "unknown";
+  const [emailLimit, ipLimit] = await Promise.all([
+    consumeLoginAttempt("email", email, 10),
+    consumeLoginAttempt("ip", clientIp, 60),
+  ]);
+  if (!emailLimit.allowed || !ipLimit.allowed) {
+    return { ok: false, error: "Muitas tentativas de acesso. Aguarde 15 minutos e tente novamente." };
+  }
+
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, passwordHash: true, companyId: true, isActive: true, role: true },
@@ -46,6 +60,8 @@ export async function loginAction(
   if (!pwOk) {
     return { ok: false, error: "E-mail ou senha incorretos." };
   }
+
+  await clearEmailLoginAttempts(email);
 
   const maxAge = remember ? getRememberedSessionMaxAge() : undefined;
   const token = await createSessionToken(user.id, user.companyId, maxAge);

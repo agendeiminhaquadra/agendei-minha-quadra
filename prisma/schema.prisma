@@ -279,6 +279,16 @@ model User {
   @@index([companyId])
 }
 
+model AuthRateLimit {
+  key             String   @id
+  attempts        Int      @default(0)
+  windowStartedAt DateTime
+  expiresAt       DateTime
+  updatedAt       DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 // ============================================================
 // 3. MODALITY (antigo "Sport" — tabela física se mantém "Sport")
 // ============================================================
