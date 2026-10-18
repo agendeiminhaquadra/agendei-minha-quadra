@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookingOrigin, BookingStatus, PaymentMethod, PaymentStatus, PaymentTransactionStatus, Role } from "@prisma/client";
+import { BookingOrigin, BookingStatus, PaymentMethod, PaymentStatus, PaymentTransactionStatus } from "@prisma/client";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -27,19 +27,7 @@ import { redirect } from "next/navigation";
 export const revalidate = 0;
 
 type PageProps = {
-  searchParams?: { from?: string; to?: string };
-};
-
-const bookingStatusLabels: Record<BookingStatus, string> = {
-  AVAILABLE: "Disponível",
-  RESERVED: "Reservado",
-  BLOCKED: "Bloqueado",
-  PENDING: "Aguardando confirmação",
-  CONFIRMED: "Confirmada",
-  CHECKED_IN: "Em andamento",
-  COMPLETED: "Concluída",
-  CANCELED: "Cancelada",
-  NO_SHOW: "Não compareceu",
+  searchParams?: { from?: string; to?: string; month?: string; method?: string };
 };
 
 const originLabels: Record<BookingOrigin, string> = {
@@ -76,7 +64,15 @@ export default async function RelatoriosPage({ searchParams = {} }: PageProps) {
   const session = await getSession();
   if (!session) redirect("/login?next=/admin/relatorios");
 
-  const { from, to, start, end } = resolveReportRange(searchParams.from, searchParams.to);
+  const defaultRange = resolveReportRange(searchParams.from, searchParams.to);
+  const monthValue = /^\d{4}-(0[1-9]|1[0-2])$/.test(searchParams.month || "") ? searchParams.month! : defaultRange.from.slice(0, 7);
+  const [monthYear, monthNumber] = monthValue.split("-").map(Number);
+  const monthRange = searchParams.month ? resolveReportRange(`${monthValue}-01`, `${monthYear}-${String(monthNumber).padStart(2, "0")}-${String(new Date(monthYear, monthNumber, 0).getDate()).padStart(2, "0")}`) : null;
+  const { from, to, start, end } = monthRange || defaultRange;
+  const selectedMethod = Object.values(PaymentMethod).includes(searchParams.method as PaymentMethod)
+    ? searchParams.method as PaymentMethod
+    : "ALL";
+  const methodWhere = selectedMethod === "ALL" ? {} : { paymentMethod: selectedMethod };
   const [bookings, paymentRows] = await Promise.all([
     prisma.booking.findMany({
       where: {
@@ -94,8 +90,9 @@ export default async function RelatoriosPage({ searchParams = {} }: PageProps) {
     prisma.payment.findMany({
       where: {
         companyId: session.companyId,
+        ...methodWhere,
         OR: [
-          { status: PaymentTransactionStatus.PAID, paidAt: { gte: start, lte: end } },
+          { status: { in: [PaymentTransactionStatus.PAID, PaymentTransactionStatus.PARTIALLY_REFUNDED] }, paidAt: { gte: start, lte: end } },
           { status: PaymentTransactionStatus.REFUNDED, refundedAt: { gte: start, lte: end } },
         ],
       },
@@ -114,7 +111,7 @@ export default async function RelatoriosPage({ searchParams = {} }: PageProps) {
   ]);
 
   const activeBookings = bookings.filter((booking) => booking.status !== BookingStatus.CANCELED);
-  const receivedPayments = paymentRows.filter((payment) => payment.status === PaymentTransactionStatus.PAID);
+  const receivedPayments = paymentRows.filter((payment) => payment.status === PaymentTransactionStatus.PAID || payment.status === PaymentTransactionStatus.PARTIALLY_REFUNDED);
   const refundedPayments = paymentRows.filter((payment) => payment.status === PaymentTransactionStatus.REFUNDED);
   const received = receivedPayments.reduce((sum, payment) => sum + payment.amount, 0);
   const refunded = refundedPayments.reduce((sum, payment) => sum + payment.amount, 0);
@@ -206,29 +203,22 @@ export default async function RelatoriosPage({ searchParams = {} }: PageProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {quickRanges.map((range) => (
-            <Link key={range.label} href={`/admin/relatorios?from=${range.from}&to=${range.to}`} className="rounded-xl border border-border bg-white px-3 py-2 text-sm font-bold text-text-secondary transition hover:border-primary-orange hover:text-primary-orange">
+            <Link key={range.label} href={`/admin/relatorios?from=${range.from}&to=${range.to}&method=${selectedMethod}`} className="rounded-xl border border-border bg-white px-3 py-2 text-sm font-bold text-text-secondary transition hover:border-primary-orange hover:text-primary-orange">
               {range.label}
             </Link>
           ))}
-          <Link href={`/admin/relatorios/export?from=${from}&to=${to}`} className="inline-flex items-center gap-2 rounded-xl bg-primary-orange px-4 py-2 text-sm font-bold text-white transition hover:opacity-90">
+          <Link href={`/admin/relatorios/export?from=${from}&to=${to}&method=${selectedMethod}`} className="inline-flex items-center gap-2 rounded-xl bg-primary-orange px-4 py-2 text-sm font-bold text-white transition hover:opacity-90">
             <Download size={16} /> Exportar CSV
           </Link>
         </div>
       </div>
 
       <form action="/admin/relatorios" method="get" className="card-modern flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
-        <label className="flex-1 text-xs font-bold uppercase tracking-wider text-text-secondary">
-          De
-          <input type="date" name="from" value={from} max={to} className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-medium text-dark" />
-        </label>
-        <label className="flex-1 text-xs font-bold uppercase tracking-wider text-text-secondary">
-          Até
-          <input type="date" name="to" value={to} min={from} max={today} className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-medium text-dark" />
-        </label>
-        <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-700">
-          <Filter size={16} /> Aplicar período
-        </button>
+        <label className="flex-1 text-xs font-bold uppercase tracking-wider text-text-secondary">Mês<input type="month" name="month" defaultValue={monthValue} className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-medium text-dark" /></label>
+        <label className="flex-1 text-xs font-bold uppercase tracking-wider text-text-secondary">Forma de pagamento<select name="method" defaultValue={selectedMethod} className="mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm font-medium text-dark"><option value="ALL">Todas as formas</option>{Object.entries(methodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white hover:bg-slate-700"><Filter size={16} /> Filtrar relatório</button>
       </form>
+      <p className="-mt-4 text-xs text-text-secondary">A forma de pagamento filtra recebimentos e movimentações. Os indicadores de reservas continuam mostrando todas as reservas do mês selecionado.</p>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={Wallet} label="Recebido líquido" value={formatCurrency(netReceived)} hint={`${formatCurrency(received)} recebidos${refunded > 0 ? ` · ${formatCurrency(refunded)} devolvidos` : ""}`} tone="green" />

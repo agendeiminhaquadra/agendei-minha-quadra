@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { BookingStatus, PaymentTransactionStatus } from "@prisma/client";
+import { BookingStatus, PaymentMethod, PaymentTransactionStatus } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { requirePermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -20,6 +20,10 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const { from, to, start, end } = resolveReportRange(params.get("from") || undefined, params.get("to") || undefined);
+  const requestedMethod = params.get("method");
+  const paymentMethod = Object.values(PaymentMethod).includes(requestedMethod as PaymentMethod)
+    ? requestedMethod as PaymentMethod
+    : undefined;
   const bookings = await prisma.booking.findMany({
     where: {
       companyId: session.companyId,
@@ -32,7 +36,8 @@ export async function GET(request: NextRequest) {
       customer: { select: { name: true } },
       payments: {
         where: {
-          status: PaymentTransactionStatus.PAID,
+          status: { in: [PaymentTransactionStatus.PAID, PaymentTransactionStatus.PARTIALLY_REFUNDED] },
+          ...(paymentMethod ? { paymentMethod } : {}),
           paidAt: { gte: start, lte: end },
         },
         select: { amount: true },

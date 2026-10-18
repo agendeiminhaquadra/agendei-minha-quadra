@@ -559,7 +559,7 @@ export async function updateBookingStatusAction(id: string, newStatus: BookingSt
   }
 }
 
-export async function registerBookingPaymentAction(bookingId: string, paymentMethod: PaymentMethod) {
+export async function registerBookingPaymentAction(bookingId: string, paymentMethod: PaymentMethod, requestedAmount?: number) {
   const company = await getCompanyOrThrow(
     [Role.ADMIN, Role.GERENTE, Role.CAIXA, Role.ATENDENTE],
     "canAccessFinance",
@@ -578,7 +578,12 @@ export async function registerBookingPaymentAction(bookingId: string, paymentMet
       if (booking.status === BookingStatus.CANCELED) throw new Error("Não é possível registrar pagamento de uma reserva cancelada.");
       if (booking.paymentStatus === PaymentStatus.PAID) return;
 
-      const amount = Math.max(0, Math.round((booking.totalPrice - booking.paidAmount) * 100) / 100);
+      const remaining = Math.max(0, Math.round((booking.totalPrice - booking.paidAmount) * 100) / 100);
+      const amount = requestedAmount === undefined ? remaining : Math.round(requestedAmount * 100) / 100;
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("Informe um valor de pagamento maior que zero.");
+      if (amount > remaining) throw new Error("O pagamento não pode ser maior que o saldo pendente.");
+      const newPaidAmount = Math.round((booking.paidAmount + amount) * 100) / 100;
+      const fullyPaid = newPaidAmount >= booking.totalPrice;
       if (amount <= 0) throw new Error("Esta reserva não tem valor pendente.");
 
       await tx.payment.create({
@@ -594,7 +599,7 @@ export async function registerBookingPaymentAction(bookingId: string, paymentMet
       });
       await tx.booking.update({
         where: { id: booking.id },
-        data: { paidAmount: booking.totalPrice, paymentStatus: PaymentStatus.PAID },
+        data: { paidAmount: fullyPaid ? booking.totalPrice : newPaidAmount, paymentStatus: fullyPaid ? PaymentStatus.PAID : PaymentStatus.PARTIAL },
       });
     });
 
