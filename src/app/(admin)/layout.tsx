@@ -125,7 +125,7 @@ export default async function AdminLayout({
             Para continuar gerenciando seu complexo esportivo, regularize sua conta.
           </p>
           <Link 
-            href="/admin/configuracoes" 
+            href="/assinatura"
             className="w-full btn-gradient py-3 px-6 rounded-xl text-white font-semibold inline-block hover:opacity-90 transition-opacity"
           >
             Regularizar Assinatura
@@ -155,7 +155,7 @@ export default async function AdminLayout({
             <span>
               Você está no período de teste. Restam <strong>{subscription.daysLeft} dias</strong>.
             </span>
-            <Link href="/admin/configuracoes" className="underline hover:opacity-80 ml-2">
+            <Link href="/assinatura"className="underline hover:opacity-80 ml-2">
               Assinar agora
             </Link>
           </div>

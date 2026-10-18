@@ -8,6 +8,7 @@ import {
   BarChart3,
   FileText,
   Settings,
+  CreditCard,
   LogOut,
   ChevronRight,
   Menu,
@@ -46,6 +47,7 @@ const menuItems = [
   { icon: Trophy, label: "Quadras", href: "/admin/quadras" },
   { icon: Users, label: "Clientes", href: "/admin/clientes" },
   { icon: BarChart3, label: "Financeiro", href: "/admin/financeiro" },
+  { icon: CreditCard, label: "Assinatura", href: "/assinatura" },
   { icon: FileText, label: "Relatórios", href: "/admin/relatorios" },
   { icon: Settings, label: "Configurações", href: "/admin/configuracoes" },
 ];

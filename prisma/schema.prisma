@@ -148,6 +148,11 @@ enum PlanPaymentStatus {
   OVERDUE
 }
 
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
 model Company {
   id                            String             @id @default(cuid())
   name                          String
@@ -198,6 +203,10 @@ model Company {
   currentPeriodEnd              DateTime?
   monthlyPrice                  Float?
   paymentStatus                 PlanPaymentStatus  @default(NOT_SET)
+  stripeCustomerId              String?            @unique
+  stripeSubscriptionId           String?            @unique
+  stripePriceId                 String?
+  billingInterval               BillingInterval?
   createdAt                     DateTime           @default(now())
   updatedAt                     DateTime           @updatedAt
 
@@ -213,6 +222,15 @@ model Company {
   employees     Employee[]
 
   @@map("Tenant")
+}
+
+model StripeWebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
+
+  @@map("StripeWebhookEvent")
 }
 
 model BusinessHours {

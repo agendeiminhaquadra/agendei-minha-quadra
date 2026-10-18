@@ -26,7 +26,6 @@ type FeatureCard = {
 type Plano = {
   nome: string;
   precoMensal: number;
-  precoAnual: number;
   tag?: string;
   popular?: boolean;
   beneficios: string[];
@@ -143,7 +142,6 @@ const PLANOS: Plano[] = [
   {
     nome: "Essencial",
     precoMensal: 89,
-    precoAnual: 79,
     tag: "Para começar",
     beneficios: [
       "Até 2 quadras cadastradas",
@@ -157,7 +155,6 @@ const PLANOS: Plano[] = [
   {
     nome: "Profissional",
     precoMensal: 169,
-    precoAnual: 149,
     tag: "Mais Escolhido",
     popular: true,
     beneficios: [
@@ -175,7 +172,6 @@ const PLANOS: Plano[] = [
   {
     nome: "Empresa",
     precoMensal: 299,
-    precoAnual: 259,
     tag: "Para redes e arenas grandes",
     beneficios: [
       "Quadras ilimitadas",
@@ -232,7 +228,6 @@ const NAV_LINKS = [
 export default function SiteVendasSaaS() {
   const router = useRouter();
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
-  const [periodoAnual, setPeriodoAnual] = useState(true);
   const [formEnviado, setFormEnviado] = useState(false);
   const [formNome, setFormNome] = useState("");
   const [formTelefone, setFormTelefone] = useState("");
@@ -723,35 +718,7 @@ export default function SiteVendasSaaS() {
             <p className="text-text-secondary mt-4 text-lg">
               Sem taxa de adesão. Sem multa. Cancele quando quiser.
             </p>
-
-            {/* Switch mensal/anual */}
-            <div className="mt-8 inline-flex items-center gap-4 p-1.5 rounded-2xl bg-[#0B1220]/5 border border-border">
-              <button
-                onClick={() => setPeriodoAnual(false)}
-                className={cn(
-                  "px-5 py-2.5 rounded-xl text-sm font-black transition-all",
-                  !periodoAnual
-                    ? "bg-white text-dark shadow-md"
-                    : "text-text-secondary hover:text-dark"
-                )}
-              >
-                Mensal
-              </button>
-              <button
-                onClick={() => setPeriodoAnual(true)}
-                className={cn(
-                  "px-5 py-2.5 rounded-xl text-sm font-black transition-all inline-flex items-center gap-2",
-                  periodoAnual
-                    ? "bg-gradient-to-r from-[#FF8A00] to-[#FF6A00] text-white shadow-lg shadow-orange-500/25"
-                    : "text-text-secondary hover:text-dark"
-                )}
-              >
-                Anual
-                <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                  2 meses grátis
-                </span>
-              </button>
-            </div>
+            <p className="mt-6 text-sm font-bold text-text-secondary">Cobran?a mensal</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
@@ -804,7 +771,7 @@ export default function SiteVendasSaaS() {
                         pl.popular ? "text-white text-5xl" : "text-dark text-5xl"
                       )}
                     >
-                      {periodoAnual ? pl.precoAnual : pl.precoMensal}
+                      {pl.precoMensal}
                     </span>
                     <span
                       className={cn(
@@ -815,17 +782,6 @@ export default function SiteVendasSaaS() {
                       /mês
                     </span>
                   </p>
-                  {periodoAnual && (
-                    <p
-                      className={cn(
-                        "text-xs font-bold mt-1.5",
-                        pl.popular ? "text-green-300" : "text-green-600"
-                      )}
-                    >
-                      Economize R${" "}
-                      {(pl.precoMensal - pl.precoAnual) * 12},00 no ano!
-                    </p>
-                  )}
                 </div>
 
                 <div className={cn("h-px mb-6", pl.popular ? "bg-white/10" : "bg-border")} />
