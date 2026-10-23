@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Somente o administrador da arena pode alterar a assinatura." }, { status: 403 });
   }
 
-  let body: { planTier?: string };
+  let body: { planTier?: string; payerEmail?: string };
   try {
     body = await request.json();
   } catch {
@@ -32,6 +32,10 @@ export async function POST(request: NextRequest) {
   }
 
   const planTier = body.planTier as PlanTier;
+  const payerEmail = typeof body.payerEmail === "string" ? body.payerEmail.trim().toLowerCase() : "";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
+    return NextResponse.json({ error: "Informe o e-mail da conta Mercado Pago que fará o pagamento." }, { status: 400 });
+  }
   const company = await prisma.company.findUnique({
     where: { id: session.companyId },
     select: { id: true, email: true, stripeSubscriptionId: true, mercadoPagoSubscriptionId: true, planStatus: true },
@@ -67,7 +71,7 @@ export async function POST(request: NextRequest) {
     const subscription = await createSubscription({
       companyId: company.id,
       planTier,
-      payerEmail: company.email || user.email,
+      payerEmail,
       backUrl: `${baseUrl}/assinatura?checkout=returned`,
       notificationUrl: `${baseUrl}/api/mercadopago/webhook`,
     });

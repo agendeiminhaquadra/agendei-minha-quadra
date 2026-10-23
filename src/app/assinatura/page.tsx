@@ -33,7 +33,7 @@ export default async function AssinaturaPage({ searchParams = {} }: Props) {
     prisma.company.findUnique({
       where: { id: session.companyId },
       select: {
-        name: true, planTier: true, planStatus: true, trialEndsAt: true, currentPeriodEnd: true,
+        name: true, email: true, planTier: true, planStatus: true, trialEndsAt: true, currentPeriodEnd: true,
         billingInterval: true, stripeSubscriptionId: true, mercadoPagoSubscriptionId: true,
       },
     }),
@@ -74,6 +74,7 @@ export default async function AssinaturaPage({ searchParams = {} }: Props) {
           {missingConfiguration.length > 0 && <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><b>Configuração pendente:</b> faltam as variáveis do Mercado Pago no servidor: {missingConfiguration.join(", ")}.</div>}
           <SubscriptionCheckout
             currentPlan={company.planTier}
+            payerEmail={company.email || ""}
             hasMercadoPagoSubscription={Boolean(company.mercadoPagoSubscriptionId)}
             mercadoPagoSubscriptionActive={Boolean(company.mercadoPagoSubscriptionId) && company.planStatus === "ACTIVE"}
           />
