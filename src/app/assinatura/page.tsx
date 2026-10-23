@@ -8,7 +8,7 @@ import { SubscriptionCheckout } from "@/components/billing/SubscriptionCheckout"
 
 export const dynamic = "force-dynamic";
 
-type Props = { searchParams?: { checkout?: string } };
+type Props = { searchParams?: { checkout?: string; dayPass?: string } };
 
 const planNames: Record<PlanTier, string> = {
   TRIAL: "Teste grátis",
@@ -58,6 +58,9 @@ export default async function AssinaturaPage({ searchParams = {} }: Props) {
         {checkoutState === "returned" && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><b>Checkout iniciado.</b> Estamos aguardando a confirmação da assinatura pelo Mercado Pago.</div>}
         {checkoutState === "success" && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><b>Checkout concluído.</b> O acesso será atualizado após a confirmação do pagamento pelo Mercado Pago.</div>}
         {checkoutState === "cancelled" && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">A contratação foi interrompida antes da conclusão. Nenhuma assinatura foi ativada por esta tela.</div>}
+        {searchParams.dayPass === "success" && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><b>Pagamento enviado.</b> O acesso de teste será liberado por 24 horas depois que o Mercado Pago confirmar o pagamento.</div>}
+        {searchParams.dayPass === "failure" && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">O pagamento não foi concluído. Nenhum acesso de teste foi liberado.</div>}
+        {searchParams.dayPass === "pending" && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">O Mercado Pago ainda está processando o pagamento. O acesso será liberado somente após a aprovação.</div>}
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
           <div className="flex flex-wrap items-start justify-between gap-4">

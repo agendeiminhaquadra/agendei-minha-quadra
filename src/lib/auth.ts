@@ -196,6 +196,7 @@ export function calcSubscriptionInfo(raw: {
   const isExpired =
     raw.planStatus === "EXPIRED" ||
     (raw.planStatus === "TRIALING" && trialEnd.getTime() < agora.getTime()) ||
+    (raw.planStatus === "ACTIVE" && Boolean(raw.currentPeriodEnd) && raw.currentPeriodEnd!.getTime() < agora.getTime()) ||
     (raw.planStatus === "PAST_DUE") ||
     (raw.planStatus === "CANCELED" && (!raw.currentPeriodEnd || raw.currentPeriodEnd.getTime() < agora.getTime()));
   const isActive = !isExpired;

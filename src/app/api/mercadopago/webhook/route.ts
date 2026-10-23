@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   findAuthorizedPaymentsByPaymentId,
   getAuthorizedPayment,
+  getPayment,
   getSubscription,
   parseExternalReference,
   verifyMercadoPagoSignature,
@@ -92,6 +93,52 @@ async function processInvoice(invoiceId: string) {
   });
 }
 
+async function processOneDayPass(paymentId: string) {
+  const payment = await getPayment(paymentId);
+  const reference = payment.external_reference || "";
+  if (!reference.startsWith("VIPDAY1|")) return false;
+
+  if (payment.status !== "approved" || payment.currency_id !== "BRL" || Number(payment.transaction_amount) !== 1) {
+    return true;
+  }
+  const companyId = reference.slice("VIPDAY1|".length);
+  if (!companyId) return true;
+
+  const eventId = `day-pass-payment:${payment.id}`;
+  try {
+    await prisma.mercadoPagoWebhookEvent.create({ data: { eventId, topic: "day_pass_payment" } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return true;
+    throw error;
+  }
+
+  try {
+    const now = new Date();
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true, planStatus: true, currentPeriodEnd: true },
+    });
+    if (!company) throw new Error("A arena vinculada ao pagamento VIP não foi encontrada.");
+    const start = company.planStatus === "ACTIVE" && company.currentPeriodEnd && company.currentPeriodEnd > now
+      ? company.currentPeriodEnd
+      : now;
+    await prisma.company.update({
+      where: { id: companyId },
+      data: {
+        planTier: "ESSENCIAL",
+        planStatus: SubscriptionStatus.ACTIVE,
+        paymentStatus: PlanPaymentStatus.PAID,
+        currentPeriodStart: now,
+        currentPeriodEnd: new Date(start.getTime() + 24 * 60 * 60 * 1000),
+      },
+    });
+  } catch (error) {
+    await prisma.mercadoPagoWebhookEvent.deleteMany({ where: { eventId } });
+    throw error;
+  }
+  return true;
+}
+
 export async function POST(request: NextRequest) {
   const dataId = request.nextUrl.searchParams.get("data.id") || request.nextUrl.searchParams.get("id");
   const signatureIsValid = verifyMercadoPagoSignature({
@@ -122,8 +169,11 @@ export async function POST(request: NextRequest) {
     } else if (topic === "subscription_authorized_payment") {
       await processInvoice(resourceId);
     } else {
-      const invoices = await findAuthorizedPaymentsByPaymentId(resourceId);
-      for (const invoice of invoices.results ?? []) await processInvoice(String(invoice.id));
+      const isOneDayPass = await processOneDayPass(resourceId);
+      if (!isOneDayPass) {
+        const invoices = await findAuthorizedPaymentsByPaymentId(resourceId);
+        for (const invoice of invoices.results ?? []) await processInvoice(String(invoice.id));
+      }
     }
 
     await prisma.mercadoPagoWebhookEvent.create({ data: { eventId: `${topic}:${body.id}`, topic } });

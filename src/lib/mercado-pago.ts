@@ -20,6 +20,20 @@ export type MercadoPagoSubscription = {
   auto_recurring?: { transaction_amount?: string | number; currency_id?: string };
 };
 
+export type MercadoPagoPayment = {
+  id: string | number;
+  status?: string;
+  transaction_amount?: number;
+  currency_id?: string;
+  external_reference?: string | null;
+};
+
+export type MercadoPagoPreference = {
+  id: string;
+  init_point?: string | null;
+  sandbox_init_point?: string | null;
+};
+
 export type MercadoPagoAuthorizedPayment = {
   id: string | number;
   preapproval_id?: string | null;
@@ -107,6 +121,27 @@ export function getAuthorizedPayment(id: string) {
 export function findAuthorizedPaymentsByPaymentId(paymentId: string) {
   const query = new URLSearchParams({ payment_id: paymentId });
   return apiRequest<MercadoPagoAuthorizedPaymentSearch>(`/authorized_payments/search?${query.toString()}`);
+}
+
+export function createOneDayTestPreference(input: { companyId: string; backUrl: string; notificationUrl: string }) {
+  return apiRequest<MercadoPagoPreference>("/checkout/preferences", {
+    method: "POST",
+    body: JSON.stringify({
+      items: [{ title: "Cliente VIP · acesso Essencial por 1 dia", quantity: 1, currency_id: "BRL", unit_price: 1 }],
+      external_reference: `VIPDAY1|${input.companyId}`,
+      back_urls: {
+        success: `${input.backUrl}?dayPass=success`,
+        failure: `${input.backUrl}?dayPass=failure`,
+        pending: `${input.backUrl}?dayPass=pending`,
+      },
+      notification_url: input.notificationUrl,
+      auto_return: "approved",
+    }),
+  });
+}
+
+export function getPayment(id: string) {
+  return apiRequest<MercadoPagoPayment>(`/v1/payments/${encodeURIComponent(id)}`);
 }
 
 export function verifyMercadoPagoSignature(input: {

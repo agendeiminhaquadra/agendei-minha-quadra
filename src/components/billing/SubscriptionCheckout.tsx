@@ -75,9 +75,13 @@ export function SubscriptionCheckout({
           {busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
           Continuar para pagamento <ArrowRight size={17} />
         </button>}
+        {!mercadoPagoSubscriptionActive && <button type="button" disabled={busy} onClick={() => void navigateTo("/api/billing/day-pass")} className="inline-flex items-center justify-center gap-2 rounded-xl border border-orange-300 bg-white px-5 py-3 font-bold text-orange-800 shadow-sm transition hover:bg-orange-50 disabled:opacity-60">
+          {busy ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+          Testar por R$ 1 · liberar por 1 dia <ArrowRight size={17} />
+        </button>}
         {hasMercadoPagoSubscription && <button type="button" disabled={busy} onClick={() => void cancelSubscription()} className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60">Cancelar assinatura</button>}
       </div>
-      <p className="text-xs leading-relaxed text-slate-500">Plano mensal pelo checkout seguro do Mercado Pago. O acesso será atualizado após a confirmação do pagamento.</p>
+      <p className="text-xs leading-relaxed text-slate-500">O teste cobra R$ 1 uma única vez e libera o Essencial por 24 horas após a confirmação do Mercado Pago. Não renova automaticamente. O plano mensal continua disponível acima.</p>
     </div>
   );
 }
