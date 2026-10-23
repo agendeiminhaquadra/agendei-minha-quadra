@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { BillingInterval, PlanTier, Role } from "@prisma/client";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getPublicAppUrl, getStripe, getStripePriceId } from "@/lib/stripe";
+import { cancelSubscription, createSubscription, getSubscription, planMonthlyPrices } from "@/lib/mercado-pago";
+import { getPublicAppUrl } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   const user = await prisma.user.findFirst({
     where: { id: session.userId, companyId: session.companyId, isActive: true },
-    select: { role: true },
+    select: { role: true, email: true },
   });
   if (!user || user.role !== Role.ADMIN) {
     return NextResponse.json({ error: "Somente o administrador da arena pode alterar a assinatura." }, { status: 403 });
@@ -31,41 +32,60 @@ export async function POST(request: NextRequest) {
   }
 
   const planTier = body.planTier as PlanTier;
-  const interval = BillingInterval.MONTHLY;
   const company = await prisma.company.findUnique({
     where: { id: session.companyId },
-    select: { id: true, email: true, stripeCustomerId: true, stripeSubscriptionId: true },
+    select: { id: true, email: true, stripeSubscriptionId: true, mercadoPagoSubscriptionId: true, planStatus: true },
   });
   if (!company) return NextResponse.json({ error: "Arena não encontrada." }, { status: 404 });
   if (company.stripeSubscriptionId) {
-    return NextResponse.json({ error: "Sua arena já tem uma assinatura. Use o botão de gerenciar assinatura." }, { status: 409 });
+    return NextResponse.json({ error: "Sua arena já tem uma assinatura Stripe ativa. Cancele-a antes de contratar outro plano." }, { status: 409 });
+  }
+  if (company.mercadoPagoSubscriptionId) {
+    try {
+      const current = await getSubscription(company.mercadoPagoSubscriptionId);
+      if (current.status === "pending" && current.init_point) {
+        return NextResponse.json({ url: current.init_point });
+      }
+      if (current.status === "authorized" && company.planStatus !== "PAST_DUE") {
+        return NextResponse.json({ error: "Sua arena já tem uma assinatura ativa." }, { status: 409 });
+      }
+      if (current.status !== "cancelled") {
+        await cancelSubscription(current.id);
+      }
+      await prisma.company.update({
+        where: { id: company.id },
+        data: { mercadoPagoSubscriptionId: null },
+      });
+    } catch (error) {
+      console.error("Mercado Pago existing subscription error:", error instanceof Error ? error.message : "unknown error");
+      return NextResponse.json({ error: "Não foi possível verificar a assinatura atual no Mercado Pago." }, { status: 503 });
+    }
   }
 
   try {
-    const stripe = getStripe();
-    const priceId = getStripePriceId(planTier, interval);
-    const price = await stripe.prices.retrieve(priceId);
-    if (!price.active || price.type !== "recurring" || price.currency !== "brl" || price.recurring?.interval !== "month" || price.recurring.interval_count !== 1) {
-      return NextResponse.json({ error: "O pre?o Stripe configurado precisa ser recorrente mensal em BRL." }, { status: 503 });
-    }
     const baseUrl = getPublicAppUrl(request.nextUrl.origin);
-    const checkout = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
-      ...(company.stripeCustomerId
-        ? { customer: company.stripeCustomerId }
-        : { customer_email: company.email || undefined }),
-      client_reference_id: company.id,
-      metadata: { companyId: company.id, planTier, interval },
-      subscription_data: { metadata: { companyId: company.id, planTier, interval } },
-      success_url: `${baseUrl}/assinatura?checkout=success`,
-      cancel_url: `${baseUrl}/assinatura?checkout=cancelled`,
-      locale: "auto",
+    const subscription = await createSubscription({
+      companyId: company.id,
+      planTier,
+      payerEmail: company.email || user.email,
+      backUrl: `${baseUrl}/assinatura?checkout=returned`,
+      notificationUrl: `${baseUrl}/api/mercadopago/webhook`,
     });
-    if (!checkout.url) throw new Error("A Stripe não retornou o endereço do Checkout.");
-    return NextResponse.json({ url: checkout.url });
+    if (!subscription.id || !subscription.init_point) {
+      throw new Error("O Mercado Pago não retornou o link de pagamento da assinatura.");
+    }
+    await prisma.company.update({
+      where: { id: company.id },
+      data: {
+        mercadoPagoSubscriptionId: subscription.id,
+        billingInterval: BillingInterval.MONTHLY,
+        monthlyPrice: planMonthlyPrices[planTier],
+        paymentStatus: "PENDING",
+      },
+    });
+    return NextResponse.json({ url: subscription.init_point });
   } catch (error) {
-    console.error("Stripe Checkout error:", error instanceof Error ? error.message : "unknown error");
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível iniciar o Checkout." }, { status: 503 });
+    console.error("Mercado Pago subscription checkout error:", error instanceof Error ? error.message : "unknown error");
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível iniciar o checkout do Mercado Pago." }, { status: 503 });
   }
 }
