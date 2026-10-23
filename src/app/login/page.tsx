@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState, useEffect, Suspense } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { LogIn, ArrowRight, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loginAction, LoginResult } from "./actions";
@@ -58,14 +59,19 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#FFF9F2] via-[#FFFBF5] to-[#FFF0E0] flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8 bg-white rounded-3xl overflow-hidden shadow-2xl border border-border">
-        <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-[#0B1220] via-[#121C32] to-[#1A2742] text-white relative overflow-hidden">
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-[#f5f2ee] p-4 sm:p-8">
+      <div className="pointer-events-none absolute -left-24 top-10 h-80 w-80 rounded-full bg-orange-200/60 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-amber-100 blur-3xl" />
+      <div className="relative w-full max-w-6xl grid md:grid-cols-2 bg-white rounded-[2rem] overflow-hidden shadow-[0_32px_90px_-34px_rgba(22,28,40,0.38)] border border-white/70">
+        <div className="hidden md:flex flex-col justify-between p-10 lg:p-14 bg-gradient-to-br from-[#0B1220] via-[#121C32] to-[#1A2742] text-white relative overflow-hidden">
           <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-gradient-to-br from-[#FF8A00] to-[#FF6A00] opacity-40 blur-3xl" />
           <div className="absolute -bottom-20 -left-10 w-64 h-64 rounded-full bg-[#FF8A00] opacity-20 blur-3xl" />
 
           <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-10">
+            <div className="mb-8 inline-flex rounded-2xl border border-white/10 bg-black/20 p-2 shadow-xl">
+              <Image src="/logo.png" alt="Agendei Minha Quadra" width={270} height={180} priority className="h-auto w-56 rounded-xl object-contain" />
+            </div>
+            <div className="hidden items-center gap-3 mb-8">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF8A00] to-[#FF6A00] flex items-center justify-center font-black text-2xl shadow-lg">
                 🎾
               </div>
@@ -104,9 +110,10 @@ function LoginContent() {
           </p>
         </div>
 
-        <div className="p-8 sm:p-10 flex flex-col justify-center">
-          <div className="flex md:hidden items-center gap-3 mb-8">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF8A00] to-[#FF6A00] flex items-center justify-center font-black text-xl shadow-lg">
+        <div className="p-7 sm:p-12 lg:p-16 flex flex-col justify-center">
+          <div className="flex md:hidden items-center gap-4 mb-8">
+            <Image src="/logo.png" alt="Agendei Minha Quadra" width={170} height={114} priority className="h-[72px] w-28 rounded-xl bg-[#0B1220] object-contain p-1" />
+            <div className="hidden w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF8A00] to-[#FF6A00] items-center justify-center font-black text-xl shadow-lg">
               🎾
             </div>
             <div>
@@ -127,8 +134,9 @@ function LoginContent() {
             </div>
           )}
 
-          <h2 className="text-3xl font-black text-dark mb-2">Entrar no sistema</h2>
-          <p className="text-text-secondary mb-7">
+          <p className="mb-3 hidden text-xs font-black uppercase tracking-[0.2em] text-orange-600 md:block">Acesso do administrador</p>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-dark mb-2">Entrar no sistema</h2>
+          <p className="text-text-secondary mb-8">
             Novo por aqui?{" "}
             <Link
               href="/registrar"
